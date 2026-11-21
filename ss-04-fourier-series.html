@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signals & Systems Ch.4 — The Fourier Series — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">Signals &amp; Systems / Ch. 4: The Fourier Series</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// Signals &amp; Systems — Chapter 4 of 7</span>
+  <h1>The Fourier Series</h1>
+  <p>Convolution describes an LTI system in the time domain, but it is laborious: sliding, multiplying, integrating. There is a second, often far simpler way to see the same system — by asking what it does to each <em>frequency</em>. This chapter builds the bridge for periodic signals: any periodic signal can be written as a sum of sinusoids at multiples of a fundamental frequency, and an LTI system simply rescales and delays each one. You will learn to compute the coefficients, read a spectrum, use Parseval's relation to count power, and see why a square wave through a low-pass filter comes out rounded — then measure harmonics in real firmware.</p>
+  <div class="meta"><span>Chapter 4 of 7</span><span>Builds on: Ch. 1 (even/odd, complex exponentials), Ch. 3 (impulse response), Linear Algebra Ch. 1 (dot product)</span><span>Leads into: the Fourier transform (Ch. 5)</span></div>
+</section>
+
+<section class="sec" id="fs-building-blocks">
+  <span class="sec-eyebrow">Section 4.1</span>
+  <h2 class="sec-title">Why sinusoids: eigenfunctions and frequency response</h2>
+
+  <p>Why sinusoids and not some other family of building blocks? Because of what an LTI system does to them. Feed the complex exponential e<sup>jωt</sup> into an LTI system with impulse response h(t), and use convolution from Chapter 3:</p>
+  <pre><code>y(t) = ∫ h(τ) · x(t − τ) dτ                 with x(t) = e^{jωt}
+     = ∫ h(τ) · e^{jω(t − τ)} dτ
+     = e^{jωt} · ∫ h(τ) e^{−jωτ} dτ           (e^{jωt} does not depend on τ)
+     = H(jω) · e^{jωt}</code></pre>
+  <p>where</p>
+  <pre><code>H(jω) = ∫ h(τ) e^{−jωτ} dτ                    (the frequency response)</code></pre>
+  <p>The output is the <em>same</em> exponential, multiplied by a single complex number H(jω). The signal keeps its shape and frequency; only its amplitude and phase change. That is the eigenfunction property promised in Chapter 1, and it is the same idea as an eigenvector in Linear Algebra Ch. 6: the system acts on e<sup>jωt</sup> as a plain scalar multiplication.</p>
+
+  <div class="box what">
+    <span class="box-label">What H(jω) tells you</span>
+    <p style="margin:0;">Write H(jω) = |H|·e<sup>j∠H</sup>. For a real system, a cosine input cos(ωt) comes out as <code>|H(jω)| · cos(ωt + ∠H(jω))</code>: the magnitude is the <em>gain</em> at that frequency, and the angle is the <em>phase shift</em>. For the RC circuit with h(t) = e<sup>−t</sup>u(t) (RC = 1 s), H(jω) = ∫<sub>0</sub><sup>∞</sup> e<sup>−τ</sup>e<sup>−jωτ</sup> dτ = 1/(1 + jω) — exactly the impedance-divider result you derived in Basic Electronics Ch. 4, now obtained from the impulse response.</p>
+  </div>
+
+  <div class="box why">
+    <span class="box-label">The whole plan, in one sentence</span>
+    <p style="margin:0;">If we can write an input as a sum of exponentials, linearity (Chapter 2) lets us push each one through the system separately — each just gets multiplied by H(jω) — and add the results. Convolution becomes multiplication, one frequency at a time. The Fourier series does this for periodic inputs; Chapter 5's Fourier transform extends it to everything else.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="fs-trig">
+  <span class="sec-eyebrow">Section 4.2</span>
+  <h2 class="sec-title">The trigonometric Fourier series</h2>
+
+  <p>Let x(t) be periodic with period T₀. Define the <strong>fundamental frequency</strong> ω₀ = 2π/T₀ (rad/s), or f₀ = 1/T₀ in Hz. The <strong>trigonometric Fourier series</strong> writes x(t) as a constant plus a sum of cosines and sines at the <strong>harmonics</strong> kω₀, k = 1, 2, 3, …:</p>
+  <pre><code>x(t) = a₀ + Σ [ a_k cos(kω₀t) + b_k sin(kω₀t) ]      (k = 1 to ∞)
+
+a₀  = (1/T₀) ∫ x(t) dt                       (average over one period)
+a_k = (2/T₀) ∫ x(t) cos(kω₀t) dt             (integrals over any one period)
+b_k = (2/T₀) ∫ x(t) sin(kω₀t) dt</code></pre>
+
+  <div class="box why">
+    <span class="box-label">Why only integer multiples of ω₀?</span>
+    <p style="margin:0;">To make a signal that repeats every T₀, every building block must itself repeat every T₀. cos(kω₀t) does exactly that for integer k, because it completes k full cycles in T₀. A frequency like 1.5ω₀ would not return to its starting value after T₀, and adding it would destroy the periodicity.</p>
+  </div>
+
+  <h3>Where the formulas come from: orthogonality</h3>
+  <p>Over one period the harmonics are <strong>orthogonal</strong>:</p>
+  <pre><code>∫ cos(mω₀t) cos(nω₀t) dt = 0  for m ≠ n,   = T₀/2 for m = n ≥ 1
+∫ sin(mω₀t) sin(nω₀t) dt = 0  for m ≠ n,   = T₀/2 for m = n ≥ 1
+∫ cos(mω₀t) sin(nω₀t) dt = 0  for all m, n</code></pre>
+  <p>This is precisely the situation in Linear Algebra Ch. 1 where a dot product of two different basis vectors is zero. To find the coefficient of one harmonic, take the "dot product" (integral of the product) of x(t) with that harmonic; every other term integrates to zero and only the matching one survives, leaving (T₀/2)·a_k. Dividing by T₀/2 gives the formula above. The Fourier series is a change of basis: instead of describing x by its values at each instant, you describe it by its components along the orthogonal basis {1, cos kω₀t, sin kω₀t}.</p>
+
+  <h3>Worked derivation — the square wave</h3>
+  <p>Let x(t) = +1 for 0 &lt; t &lt; T₀/2 and −1 for T₀/2 &lt; t &lt; T₀. The average is zero, so a₀ = 0. The signal is odd, so every a_k = 0 (cosines are even; Chapter 1's even/odd split says an odd signal has no even components). For the sine coefficients:</p>
+  <pre><code>b_k = (2/T₀) [ ∫ sin(kω₀t) dt  −  ∫ sin(kω₀t) dt ]      (0 to T₀/2, then T₀/2 to T₀)
+
+∫ from 0 to T₀/2 of sin(kω₀t) dt   = (1 − cos kπ) / (kω₀)
+∫ from T₀/2 to T₀ of sin(kω₀t) dt  = (cos kπ − 1) / (kω₀)
+
+b_k = (2/T₀) · 2(1 − cos kπ)/(kω₀) = 2(1 − cos kπ)/(kπ)      using T₀ω₀ = 2π
+
+k odd  (cos kπ = −1):  b_k = 4/(kπ)
+k even (cos kπ = +1):  b_k = 0</code></pre>
+  <p>So:</p>
+  <pre><code>x(t) = (4/π) · [ sin ω₀t  +  (1/3) sin 3ω₀t  +  (1/5) sin 5ω₀t  +  … ]</code></pre>
+  <p>A signal made of perfectly flat tops and instant jumps is built entirely from smooth sinusoids — infinitely many of them, with amplitudes falling off as 1/k.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 540 190" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="83.0" x2="255" y2="83.0" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="20.0" y1="28" x2="20.0" y2="138" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M20.0,48.6 L78.8,48.6 L78.8,117.4 L137.5,117.4 L137.5,48.6 L196.2,48.6 L196.2,117.4 L255.0,117.4" fill="none" stroke="var(--text)" stroke-width="1.0"/>
+      <text x="137.5" y="22" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)"></text>
+      <line x1="20" y1="83.0" x2="255" y2="83.0" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="20.0" y1="28" x2="20.0" y2="138" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M20.0,83.0 L20.3,81.6 L20.6,80.3 L20.9,78.9 L21.2,77.5 L21.5,76.2 L21.8,74.8 L22.1,73.5 L22.4,72.1 L22.6,70.8 L22.9,69.5 L23.2,68.2 L23.5,67.0 L23.8,65.7 L24.1,64.5 L24.4,63.3 L24.7,62.1 L25.0,61.0 L25.3,59.8 L25.6,58.7 L25.9,57.7 L26.2,56.6 L26.5,55.6 L26.8,54.6 L27.1,53.7 L27.3,52.8 L27.6,51.9 L27.9,51.0 L28.2,50.2 L28.5,49.5 L28.8,48.7 L29.1,48.0 L29.4,47.4 L29.7,46.7 L30.0,46.1 L30.3,45.6 L30.6,45.1 L30.9,44.6 L31.2,44.2 L31.5,43.8 L31.8,43.4 L32.0,43.1 L32.3,42.8 L32.6,42.5 L32.9,42.3 L33.2,42.1 L33.5,42.0 L33.8,41.9 L34.1,41.8 L34.4,41.8 L34.7,41.7 L35.0,41.8 L35.3,41.8 L35.6,41.9 L35.9,42.0 L36.2,42.1 L36.5,42.2 L36.7,42.4 L37.0,42.6 L37.3,42.8 L37.6,43.1 L37.9,43.3 L38.2,43.6 L38.5,43.9 L38.8,44.2 L39.1,44.5 L39.4,44.9 L39.7,45.2 L40.0,45.6 L40.3,45.9 L40.6,46.3 L40.9,46.7 L41.1,47.0 L41.4,47.4 L41.7,47.8 L42.0,48.1 L42.3,48.5 L42.6,48.9 L42.9,49.2 L43.2,49.6 L43.5,49.9 L43.8,50.3 L44.1,50.6 L44.4,50.9 L44.7,51.2 L45.0,51.5 L45.3,51.8 L45.6,52.1 L45.9,52.3 L46.1,52.6 L46.4,52.8 L46.7,53.0 L47.0,53.1 L47.3,53.3 L47.6,53.4 L47.9,53.6 L48.2,53.6 L48.5,53.7 L48.8,53.8 L49.1,53.8 L49.4,53.8 L49.7,53.8 L50.0,53.8 L50.3,53.7 L50.5,53.6 L50.8,53.6 L51.1,53.4 L51.4,53.3 L51.7,53.1 L52.0,53.0 L52.3,52.8 L52.6,52.6 L52.9,52.3 L53.2,52.1 L53.5,51.8 L53.8,51.5 L54.1,51.2 L54.4,50.9 L54.7,50.6 L55.0,50.3 L55.2,49.9 L55.5,49.6 L55.8,49.2 L56.1,48.9 L56.4,48.5 L56.7,48.1 L57.0,47.8 L57.3,47.4 L57.6,47.0 L57.9,46.7 L58.2,46.3 L58.5,45.9 L58.8,45.6 L59.1,45.2 L59.4,44.9 L59.7,44.5 L60.0,44.2 L60.2,43.9 L60.5,43.6 L60.8,43.3 L61.1,43.1 L61.4,42.8 L61.7,42.6 L62.0,42.4 L62.3,42.2 L62.6,42.1 L62.9,42.0 L63.2,41.9 L63.5,41.8 L63.8,41.8 L64.1,41.7 L64.4,41.8 L64.7,41.8 L64.9,41.9 L65.2,42.0 L65.5,42.1 L65.8,42.3 L66.1,42.5 L66.4,42.8 L66.7,43.1 L67.0,43.4 L67.3,43.8 L67.6,44.2 L67.9,44.6 L68.2,45.1 L68.5,45.6 L68.8,46.1 L69.1,46.7 L69.3,47.4 L69.6,48.0 L69.9,48.7 L70.2,49.5 L70.5,50.2 L70.8,51.0 L71.1,51.9 L71.4,52.8 L71.7,53.7 L72.0,54.6 L72.3,55.6 L72.6,56.6 L72.9,57.7 L73.2,58.7 L73.5,59.8 L73.8,61.0 L74.1,62.1 L74.3,63.3 L74.6,64.5 L74.9,65.7 L75.2,67.0 L75.5,68.2 L75.8,69.5 L76.1,70.8 L76.4,72.1 L76.7,73.5 L77.0,74.8 L77.3,76.2 L77.6,77.5 L77.9,78.9 L78.2,80.3 L78.5,81.6 L78.8,83.0 L79.0,84.4 L79.3,85.7 L79.6,87.1 L79.9,88.5 L80.2,89.8 L80.5,91.2 L80.8,92.5 L81.1,93.9 L81.4,95.2 L81.7,96.5 L82.0,97.8 L82.3,99.0 L82.6,100.3 L82.9,101.5 L83.2,102.7 L83.5,103.9 L83.7,105.0 L84.0,106.2 L84.3,107.3 L84.6,108.3 L84.9,109.4 L85.2,110.4 L85.5,111.4 L85.8,112.3 L86.1,113.2 L86.4,114.1 L86.7,115.0 L87.0,115.8 L87.3,116.5 L87.6,117.3 L87.9,118.0 L88.1,118.6 L88.4,119.3 L88.7,119.9 L89.0,120.4 L89.3,120.9 L89.6,121.4 L89.9,121.8 L90.2,122.2 L90.5,122.6 L90.8,122.9 L91.1,123.2 L91.4,123.5 L91.7,123.7 L92.0,123.9 L92.3,124.0 L92.6,124.1 L92.8,124.2 L93.1,124.2 L93.4,124.3 L93.7,124.2 L94.0,124.2 L94.3,124.1 L94.6,124.0 L94.9,123.9 L95.2,123.8 L95.5,123.6 L95.8,123.4 L96.1,123.2 L96.4,122.9 L96.7,122.7 L97.0,122.4 L97.3,122.1 L97.5,121.8 L97.8,121.5 L98.1,121.1 L98.4,120.8 L98.7,120.4 L99.0,120.1 L99.3,119.7 L99.6,119.3 L99.9,119.0 L100.2,118.6 L100.5,118.2 L100.8,117.9 L101.1,117.5 L101.4,117.1 L101.7,116.8 L102.0,116.4 L102.2,116.1 L102.5,115.7 L102.8,115.4 L103.1,115.1 L103.4,114.8 L103.7,114.5 L104.0,114.2 L104.3,113.9 L104.6,113.7 L104.9,113.4 L105.2,113.2 L105.5,113.0 L105.8,112.9 L106.1,112.7 L106.4,112.6 L106.7,112.4 L107.0,112.4 L107.2,112.3 L107.5,112.2 L107.8,112.2 L108.1,112.2 L108.4,112.2 L108.7,112.2 L109.0,112.3 L109.3,112.4 L109.6,112.4 L109.9,112.6 L110.2,112.7 L110.5,112.9 L110.8,113.0 L111.1,113.2 L111.4,113.4 L111.7,113.7 L111.9,113.9 L112.2,114.2 L112.5,114.5 L112.8,114.8 L113.1,115.1 L113.4,115.4 L113.7,115.7 L114.0,116.1 L114.3,116.4 L114.6,116.8 L114.9,117.1 L115.2,117.5 L115.5,117.9 L115.8,118.2 L116.1,118.6 L116.3,119.0 L116.6,119.3 L116.9,119.7 L117.2,120.1 L117.5,120.4 L117.8,120.8 L118.1,121.1 L118.4,121.5 L118.7,121.8 L119.0,122.1 L119.3,122.4 L119.6,122.7 L119.9,122.9 L120.2,123.2 L120.5,123.4 L120.8,123.6 L121.0,123.8 L121.3,123.9 L121.6,124.0 L121.9,124.1 L122.2,124.2 L122.5,124.2 L122.8,124.3 L123.1,124.2 L123.4,124.2 L123.7,124.1 L124.0,124.0 L124.3,123.9 L124.6,123.7 L124.9,123.5 L125.2,123.2 L125.5,122.9 L125.8,122.6 L126.0,122.2 L126.3,121.8 L126.6,121.4 L126.9,120.9 L127.2,120.4 L127.5,119.9 L127.8,119.3 L128.1,118.6 L128.4,118.0 L128.7,117.3 L129.0,116.5 L129.3,115.8 L129.6,115.0 L129.9,114.1 L130.2,113.2 L130.4,112.3 L130.7,111.4 L131.0,110.4 L131.3,109.4 L131.6,108.3 L131.9,107.3 L132.2,106.2 L132.5,105.0 L132.8,103.9 L133.1,102.7 L133.4,101.5 L133.7,100.3 L134.0,99.0 L134.3,97.8 L134.6,96.5 L134.9,95.2 L135.1,93.9 L135.4,92.5 L135.7,91.2 L136.0,89.8 L136.3,88.5 L136.6,87.1 L136.9,85.7 L137.2,84.4 L137.5,83.0 L137.8,81.6 L138.1,80.3 L138.4,78.9 L138.7,77.5 L139.0,76.2 L139.3,74.8 L139.6,73.5 L139.9,72.1 L140.1,70.8 L140.4,69.5 L140.7,68.2 L141.0,67.0 L141.3,65.7 L141.6,64.5 L141.9,63.3 L142.2,62.1 L142.5,61.0 L142.8,59.8 L143.1,58.7 L143.4,57.7 L143.7,56.6 L144.0,55.6 L144.3,54.6 L144.6,53.7 L144.8,52.8 L145.1,51.9 L145.4,51.0 L145.7,50.2 L146.0,49.5 L146.3,48.7 L146.6,48.0 L146.9,47.4 L147.2,46.7 L147.5,46.1 L147.8,45.6 L148.1,45.1 L148.4,44.6 L148.7,44.2 L149.0,43.8 L149.2,43.4 L149.5,43.1 L149.8,42.8 L150.1,42.5 L150.4,42.3 L150.7,42.1 L151.0,42.0 L151.3,41.9 L151.6,41.8 L151.9,41.8 L152.2,41.7 L152.5,41.8 L152.8,41.8 L153.1,41.9 L153.4,42.0 L153.7,42.1 L153.9,42.2 L154.2,42.4 L154.5,42.6 L154.8,42.8 L155.1,43.1 L155.4,43.3 L155.7,43.6 L156.0,43.9 L156.3,44.2 L156.6,44.5 L156.9,44.9 L157.2,45.2 L157.5,45.6 L157.8,45.9 L158.1,46.3 L158.4,46.7 L158.7,47.0 L158.9,47.4 L159.2,47.8 L159.5,48.1 L159.8,48.5 L160.1,48.9 L160.4,49.2 L160.7,49.6 L161.0,49.9 L161.3,50.3 L161.6,50.6 L161.9,50.9 L162.2,51.2 L162.5,51.5 L162.8,51.8 L163.1,52.1 L163.3,52.3 L163.6,52.6 L163.9,52.8 L164.2,53.0 L164.5,53.1 L164.8,53.3 L165.1,53.4 L165.4,53.6 L165.7,53.6 L166.0,53.7 L166.3,53.8 L166.6,53.8 L166.9,53.8 L167.2,53.8 L167.5,53.8 L167.8,53.7 L168.1,53.6 L168.3,53.6 L168.6,53.4 L168.9,53.3 L169.2,53.1 L169.5,53.0 L169.8,52.8 L170.1,52.6 L170.4,52.3 L170.7,52.1 L171.0,51.8 L171.3,51.5 L171.6,51.2 L171.9,50.9 L172.2,50.6 L172.5,50.3 L172.8,49.9 L173.0,49.6 L173.3,49.2 L173.6,48.9 L173.9,48.5 L174.2,48.1 L174.5,47.8 L174.8,47.4 L175.1,47.0 L175.4,46.7 L175.7,46.3 L176.0,45.9 L176.3,45.6 L176.6,45.2 L176.9,44.9 L177.2,44.5 L177.5,44.2 L177.7,43.9 L178.0,43.6 L178.3,43.3 L178.6,43.1 L178.9,42.8 L179.2,42.6 L179.5,42.4 L179.8,42.2 L180.1,42.1 L180.4,42.0 L180.7,41.9 L181.0,41.8 L181.3,41.8 L181.6,41.7 L181.9,41.8 L182.1,41.8 L182.4,41.9 L182.7,42.0 L183.0,42.1 L183.3,42.3 L183.6,42.5 L183.9,42.8 L184.2,43.1 L184.5,43.4 L184.8,43.8 L185.1,44.2 L185.4,44.6 L185.7,45.1 L186.0,45.6 L186.3,46.1 L186.6,46.7 L186.8,47.4 L187.1,48.0 L187.4,48.7 L187.7,49.5 L188.0,50.2 L188.3,51.0 L188.6,51.9 L188.9,52.8 L189.2,53.7 L189.5,54.6 L189.8,55.6 L190.1,56.6 L190.4,57.7 L190.7,58.7 L191.0,59.8 L191.3,61.0 L191.5,62.1 L191.8,63.3 L192.1,64.5 L192.4,65.7 L192.7,67.0 L193.0,68.2 L193.3,69.5 L193.6,70.8 L193.9,72.1 L194.2,73.5 L194.5,74.8 L194.8,76.2 L195.1,77.5 L195.4,78.9 L195.7,80.3 L196.0,81.6 L196.2,83.0 L196.5,84.4 L196.8,85.7 L197.1,87.1 L197.4,88.5 L197.7,89.8 L198.0,91.2 L198.3,92.5 L198.6,93.9 L198.9,95.2 L199.2,96.5 L199.5,97.8 L199.8,99.0 L200.1,100.3 L200.4,101.5 L200.7,102.7 L201.0,103.9 L201.2,105.0 L201.5,106.2 L201.8,107.3 L202.1,108.3 L202.4,109.4 L202.7,110.4 L203.0,111.4 L203.3,112.3 L203.6,113.2 L203.9,114.1 L204.2,115.0 L204.5,115.8 L204.8,116.5 L205.1,117.3 L205.4,118.0 L205.7,118.6 L205.9,119.3 L206.2,119.9 L206.5,120.4 L206.8,120.9 L207.1,121.4 L207.4,121.8 L207.7,122.2 L208.0,122.6 L208.3,122.9 L208.6,123.2 L208.9,123.5 L209.2,123.7 L209.5,123.9 L209.8,124.0 L210.1,124.1 L210.4,124.2 L210.6,124.2 L210.9,124.3 L211.2,124.2 L211.5,124.2 L211.8,124.1 L212.1,124.0 L212.4,123.9 L212.7,123.8 L213.0,123.6 L213.3,123.4 L213.6,123.2 L213.9,122.9 L214.2,122.7 L214.5,122.4 L214.8,122.1 L215.0,121.8 L215.3,121.5 L215.6,121.1 L215.9,120.8 L216.2,120.4 L216.5,120.1 L216.8,119.7 L217.1,119.3 L217.4,119.0 L217.7,118.6 L218.0,118.2 L218.3,117.9 L218.6,117.5 L218.9,117.1 L219.2,116.8 L219.5,116.4 L219.8,116.1 L220.0,115.7 L220.3,115.4 L220.6,115.1 L220.9,114.8 L221.2,114.5 L221.5,114.2 L221.8,113.9 L222.1,113.7 L222.4,113.4 L222.7,113.2 L223.0,113.0 L223.3,112.9 L223.6,112.7 L223.9,112.6 L224.2,112.4 L224.4,112.4 L224.7,112.3 L225.0,112.2 L225.3,112.2 L225.6,112.2 L225.9,112.2 L226.2,112.2 L226.5,112.3 L226.8,112.4 L227.1,112.4 L227.4,112.6 L227.7,112.7 L228.0,112.9 L228.3,113.0 L228.6,113.2 L228.9,113.4 L229.2,113.7 L229.4,113.9 L229.7,114.2 L230.0,114.5 L230.3,114.8 L230.6,115.1 L230.9,115.4 L231.2,115.7 L231.5,116.1 L231.8,116.4 L232.1,116.8 L232.4,117.1 L232.7,117.5 L233.0,117.9 L233.3,118.2 L233.6,118.6 L233.8,119.0 L234.1,119.3 L234.4,119.7 L234.7,120.1 L235.0,120.4 L235.3,120.8 L235.6,121.1 L235.9,121.5 L236.2,121.8 L236.5,122.1 L236.8,122.4 L237.1,122.7 L237.4,122.9 L237.7,123.2 L238.0,123.4 L238.3,123.6 L238.6,123.8 L238.8,123.9 L239.1,124.0 L239.4,124.1 L239.7,124.2 L240.0,124.2 L240.3,124.3 L240.6,124.2 L240.9,124.2 L241.2,124.1 L241.5,124.0 L241.8,123.9 L242.1,123.7 L242.4,123.5 L242.7,123.2 L243.0,122.9 L243.2,122.6 L243.5,122.2 L243.8,121.8 L244.1,121.4 L244.4,120.9 L244.7,120.4 L245.0,119.9 L245.3,119.3 L245.6,118.6 L245.9,118.0 L246.2,117.3 L246.5,116.5 L246.8,115.8 L247.1,115.0 L247.4,114.1 L247.7,113.2 L247.9,112.3 L248.2,111.4 L248.5,110.4 L248.8,109.4 L249.1,108.3 L249.4,107.3 L249.7,106.2 L250.0,105.0 L250.3,103.9 L250.6,102.7 L250.9,101.5 L251.2,100.3 L251.5,99.0 L251.8,97.8 L252.1,96.5 L252.4,95.2 L252.7,93.9 L252.9,92.5 L253.2,91.2 L253.5,89.8 L253.8,88.5 L254.1,87.1 L254.4,85.7 L254.7,84.4 L255.0,83.0" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="20.0" y="151" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="137.5" y="151" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">1</text>
+      <text x="255.0" y="151" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">2</text>
+      <text x="137.5" y="22" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">harmonics up to k = 3</text>
+      <line x1="285" y1="83.0" x2="520" y2="83.0" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="285.0" y1="28" x2="285.0" y2="138" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M285.0,48.6 L343.8,48.6 L343.8,117.4 L402.5,117.4 L402.5,48.6 L461.2,48.6 L461.2,117.4 L520.0,117.4" fill="none" stroke="var(--text)" stroke-width="1.0"/>
+      <text x="402.5" y="22" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)"></text>
+      <line x1="285" y1="83.0" x2="520" y2="83.0" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="285.0" y1="28" x2="285.0" y2="138" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M285.0,83.0 L285.3,77.5 L285.6,72.2 L285.9,67.0 L286.2,62.2 L286.5,57.8 L286.8,53.9 L287.1,50.5 L287.4,47.7 L287.6,45.6 L287.9,44.0 L288.2,43.0 L288.5,42.5 L288.8,42.5 L289.1,42.9 L289.4,43.6 L289.7,44.6 L290.0,45.7 L290.3,46.9 L290.6,48.1 L290.9,49.2 L291.2,50.2 L291.5,51.0 L291.8,51.6 L292.1,51.9 L292.3,52.1 L292.6,51.9 L292.9,51.6 L293.2,51.2 L293.5,50.5 L293.8,49.9 L294.1,49.1 L294.4,48.4 L294.7,47.7 L295.0,47.2 L295.3,46.7 L295.6,46.4 L295.9,46.2 L296.2,46.2 L296.5,46.4 L296.8,46.7 L297.0,47.1 L297.3,47.5 L297.6,48.1 L297.9,48.6 L298.2,49.1 L298.5,49.6 L298.8,50.0 L299.1,50.3 L299.4,50.5 L299.7,50.5 L300.0,50.5 L300.3,50.3 L300.6,50.0 L300.9,49.7 L301.2,49.3 L301.4,48.8 L301.7,48.4 L302.0,48.0 L302.3,47.6 L302.6,47.3 L302.9,47.1 L303.2,47.0 L303.5,47.0 L303.8,47.1 L304.1,47.3 L304.4,47.6 L304.7,47.9 L305.0,48.3 L305.3,48.7 L305.6,49.1 L305.9,49.4 L306.1,49.7 L306.4,49.9 L306.7,50.1 L307.0,50.1 L307.3,50.1 L307.6,49.9 L307.9,49.7 L308.2,49.4 L308.5,49.1 L308.8,48.7 L309.1,48.4 L309.4,48.0 L309.7,47.7 L310.0,47.5 L310.3,47.3 L310.6,47.2 L310.9,47.2 L311.1,47.3 L311.4,47.5 L311.7,47.7 L312.0,48.0 L312.3,48.4 L312.6,48.7 L312.9,49.0 L313.2,49.4 L313.5,49.6 L313.8,49.8 L314.1,49.9 L314.4,50.0 L314.7,49.9 L315.0,49.8 L315.3,49.6 L315.6,49.4 L315.8,49.0 L316.1,48.7 L316.4,48.4 L316.7,48.0 L317.0,47.7 L317.3,47.5 L317.6,47.3 L317.9,47.2 L318.2,47.2 L318.5,47.3 L318.8,47.5 L319.1,47.7 L319.4,48.0 L319.7,48.4 L320.0,48.7 L320.2,49.1 L320.5,49.4 L320.8,49.7 L321.1,49.9 L321.4,50.1 L321.7,50.1 L322.0,50.1 L322.3,49.9 L322.6,49.7 L322.9,49.4 L323.2,49.1 L323.5,48.7 L323.8,48.3 L324.1,47.9 L324.4,47.6 L324.7,47.3 L324.9,47.1 L325.2,47.0 L325.5,47.0 L325.8,47.1 L326.1,47.3 L326.4,47.6 L326.7,48.0 L327.0,48.4 L327.3,48.8 L327.6,49.3 L327.9,49.7 L328.2,50.0 L328.5,50.3 L328.8,50.5 L329.1,50.5 L329.4,50.5 L329.6,50.3 L329.9,50.0 L330.2,49.6 L330.5,49.1 L330.8,48.6 L331.1,48.1 L331.4,47.5 L331.7,47.1 L332.0,46.7 L332.3,46.4 L332.6,46.2 L332.9,46.2 L333.2,46.4 L333.5,46.7 L333.8,47.2 L334.1,47.7 L334.4,48.4 L334.6,49.1 L334.9,49.9 L335.2,50.5 L335.5,51.2 L335.8,51.6 L336.1,51.9 L336.4,52.1 L336.7,51.9 L337.0,51.6 L337.3,51.0 L337.6,50.2 L337.9,49.2 L338.2,48.1 L338.5,46.9 L338.8,45.7 L339.1,44.6 L339.3,43.6 L339.6,42.9 L339.9,42.5 L340.2,42.5 L340.5,43.0 L340.8,44.0 L341.1,45.6 L341.4,47.7 L341.7,50.5 L342.0,53.9 L342.3,57.8 L342.6,62.2 L342.9,67.0 L343.2,72.2 L343.5,77.5 L343.8,83.0 L344.0,88.5 L344.3,93.8 L344.6,99.0 L344.9,103.8 L345.2,108.2 L345.5,112.1 L345.8,115.5 L346.1,118.3 L346.4,120.4 L346.7,122.0 L347.0,123.0 L347.3,123.5 L347.6,123.5 L347.9,123.1 L348.2,122.4 L348.4,121.4 L348.7,120.3 L349.0,119.1 L349.3,117.9 L349.6,116.8 L349.9,115.8 L350.2,115.0 L350.5,114.4 L350.8,114.1 L351.1,113.9 L351.4,114.1 L351.7,114.4 L352.0,114.8 L352.3,115.5 L352.6,116.1 L352.9,116.9 L353.1,117.6 L353.4,118.3 L353.7,118.8 L354.0,119.3 L354.3,119.6 L354.6,119.8 L354.9,119.8 L355.2,119.6 L355.5,119.3 L355.8,118.9 L356.1,118.5 L356.4,117.9 L356.7,117.4 L357.0,116.9 L357.3,116.4 L357.6,116.0 L357.9,115.7 L358.1,115.5 L358.4,115.5 L358.7,115.5 L359.0,115.7 L359.3,116.0 L359.6,116.3 L359.9,116.7 L360.2,117.2 L360.5,117.6 L360.8,118.0 L361.1,118.4 L361.4,118.7 L361.7,118.9 L362.0,119.0 L362.3,119.0 L362.6,118.9 L362.8,118.7 L363.1,118.4 L363.4,118.1 L363.7,117.7 L364.0,117.3 L364.3,116.9 L364.6,116.6 L364.9,116.3 L365.2,116.1 L365.5,115.9 L365.8,115.9 L366.1,115.9 L366.4,116.1 L366.7,116.3 L367.0,116.6 L367.2,116.9 L367.5,117.3 L367.8,117.6 L368.1,118.0 L368.4,118.3 L368.7,118.5 L369.0,118.7 L369.3,118.8 L369.6,118.8 L369.9,118.7 L370.2,118.5 L370.5,118.3 L370.8,118.0 L371.1,117.6 L371.4,117.3 L371.7,117.0 L371.9,116.6 L372.2,116.4 L372.5,116.2 L372.8,116.1 L373.1,116.0 L373.4,116.1 L373.7,116.2 L374.0,116.4 L374.3,116.6 L374.6,117.0 L374.9,117.3 L375.2,117.6 L375.5,118.0 L375.8,118.3 L376.1,118.5 L376.4,118.7 L376.6,118.8 L376.9,118.8 L377.2,118.7 L377.5,118.5 L377.8,118.3 L378.1,118.0 L378.4,117.6 L378.7,117.3 L379.0,116.9 L379.3,116.6 L379.6,116.3 L379.9,116.1 L380.2,115.9 L380.5,115.9 L380.8,115.9 L381.1,116.1 L381.4,116.3 L381.6,116.6 L381.9,116.9 L382.2,117.3 L382.5,117.7 L382.8,118.1 L383.1,118.4 L383.4,118.7 L383.7,118.9 L384.0,119.0 L384.3,119.0 L384.6,118.9 L384.9,118.7 L385.2,118.4 L385.5,118.0 L385.8,117.6 L386.1,117.2 L386.3,116.7 L386.6,116.3 L386.9,116.0 L387.2,115.7 L387.5,115.5 L387.8,115.5 L388.1,115.5 L388.4,115.7 L388.7,116.0 L389.0,116.4 L389.3,116.9 L389.6,117.4 L389.9,117.9 L390.2,118.5 L390.5,118.9 L390.8,119.3 L391.0,119.6 L391.3,119.8 L391.6,119.8 L391.9,119.6 L392.2,119.3 L392.5,118.8 L392.8,118.3 L393.1,117.6 L393.4,116.9 L393.7,116.1 L394.0,115.5 L394.3,114.8 L394.6,114.4 L394.9,114.1 L395.2,113.9 L395.4,114.1 L395.7,114.4 L396.0,115.0 L396.3,115.8 L396.6,116.8 L396.9,117.9 L397.2,119.1 L397.5,120.3 L397.8,121.4 L398.1,122.4 L398.4,123.1 L398.7,123.5 L399.0,123.5 L399.3,123.0 L399.6,122.0 L399.9,120.4 L400.1,118.3 L400.4,115.5 L400.7,112.1 L401.0,108.2 L401.3,103.8 L401.6,99.0 L401.9,93.8 L402.2,88.5 L402.5,83.0 L402.8,77.5 L403.1,72.2 L403.4,67.0 L403.7,62.2 L404.0,57.8 L404.3,53.9 L404.6,50.5 L404.9,47.7 L405.1,45.6 L405.4,44.0 L405.7,43.0 L406.0,42.5 L406.3,42.5 L406.6,42.9 L406.9,43.6 L407.2,44.6 L407.5,45.7 L407.8,46.9 L408.1,48.1 L408.4,49.2 L408.7,50.2 L409.0,51.0 L409.3,51.6 L409.6,51.9 L409.8,52.1 L410.1,51.9 L410.4,51.6 L410.7,51.2 L411.0,50.5 L411.3,49.9 L411.6,49.1 L411.9,48.4 L412.2,47.7 L412.5,47.2 L412.8,46.7 L413.1,46.4 L413.4,46.2 L413.7,46.2 L414.0,46.4 L414.2,46.7 L414.5,47.1 L414.8,47.5 L415.1,48.1 L415.4,48.6 L415.7,49.1 L416.0,49.6 L416.3,50.0 L416.6,50.3 L416.9,50.5 L417.2,50.5 L417.5,50.5 L417.8,50.3 L418.1,50.0 L418.4,49.7 L418.7,49.3 L418.9,48.8 L419.2,48.4 L419.5,48.0 L419.8,47.6 L420.1,47.3 L420.4,47.1 L420.7,47.0 L421.0,47.0 L421.3,47.1 L421.6,47.3 L421.9,47.6 L422.2,47.9 L422.5,48.3 L422.8,48.7 L423.1,49.1 L423.4,49.4 L423.6,49.7 L423.9,49.9 L424.2,50.1 L424.5,50.1 L424.8,50.1 L425.1,49.9 L425.4,49.7 L425.7,49.4 L426.0,49.1 L426.3,48.7 L426.6,48.4 L426.9,48.0 L427.2,47.7 L427.5,47.5 L427.8,47.3 L428.1,47.2 L428.4,47.2 L428.6,47.3 L428.9,47.5 L429.2,47.7 L429.5,48.0 L429.8,48.4 L430.1,48.7 L430.4,49.0 L430.7,49.4 L431.0,49.6 L431.3,49.8 L431.6,49.9 L431.9,50.0 L432.2,49.9 L432.5,49.8 L432.8,49.6 L433.1,49.4 L433.3,49.0 L433.6,48.7 L433.9,48.4 L434.2,48.0 L434.5,47.7 L434.8,47.5 L435.1,47.3 L435.4,47.2 L435.7,47.2 L436.0,47.3 L436.3,47.5 L436.6,47.7 L436.9,48.0 L437.2,48.4 L437.5,48.7 L437.8,49.1 L438.0,49.4 L438.3,49.7 L438.6,49.9 L438.9,50.1 L439.2,50.1 L439.5,50.1 L439.8,49.9 L440.1,49.7 L440.4,49.4 L440.7,49.1 L441.0,48.7 L441.3,48.3 L441.6,47.9 L441.9,47.6 L442.2,47.3 L442.5,47.1 L442.7,47.0 L443.0,47.0 L443.3,47.1 L443.6,47.3 L443.9,47.6 L444.2,48.0 L444.5,48.4 L444.8,48.8 L445.1,49.3 L445.4,49.7 L445.7,50.0 L446.0,50.3 L446.3,50.5 L446.6,50.5 L446.9,50.5 L447.1,50.3 L447.4,50.0 L447.7,49.6 L448.0,49.1 L448.3,48.6 L448.6,48.1 L448.9,47.5 L449.2,47.1 L449.5,46.7 L449.8,46.4 L450.1,46.2 L450.4,46.2 L450.7,46.4 L451.0,46.7 L451.3,47.2 L451.6,47.7 L451.9,48.4 L452.1,49.1 L452.4,49.9 L452.7,50.5 L453.0,51.2 L453.3,51.6 L453.6,51.9 L453.9,52.1 L454.2,51.9 L454.5,51.6 L454.8,51.0 L455.1,50.2 L455.4,49.2 L455.7,48.1 L456.0,46.9 L456.3,45.7 L456.5,44.6 L456.8,43.6 L457.1,42.9 L457.4,42.5 L457.7,42.5 L458.0,43.0 L458.3,44.0 L458.6,45.6 L458.9,47.7 L459.2,50.5 L459.5,53.9 L459.8,57.8 L460.1,62.2 L460.4,67.0 L460.7,72.2 L461.0,77.5 L461.2,83.0 L461.5,88.5 L461.8,93.8 L462.1,99.0 L462.4,103.8 L462.7,108.2 L463.0,112.1 L463.3,115.5 L463.6,118.3 L463.9,120.4 L464.2,122.0 L464.5,123.0 L464.8,123.5 L465.1,123.5 L465.4,123.1 L465.7,122.4 L466.0,121.4 L466.2,120.3 L466.5,119.1 L466.8,117.9 L467.1,116.8 L467.4,115.8 L467.7,115.0 L468.0,114.4 L468.3,114.1 L468.6,113.9 L468.9,114.1 L469.2,114.4 L469.5,114.8 L469.8,115.5 L470.1,116.1 L470.4,116.9 L470.6,117.6 L470.9,118.3 L471.2,118.8 L471.5,119.3 L471.8,119.6 L472.1,119.8 L472.4,119.8 L472.7,119.6 L473.0,119.3 L473.3,118.9 L473.6,118.5 L473.9,117.9 L474.2,117.4 L474.5,116.9 L474.8,116.4 L475.1,116.0 L475.4,115.7 L475.6,115.5 L475.9,115.5 L476.2,115.5 L476.5,115.7 L476.8,116.0 L477.1,116.3 L477.4,116.7 L477.7,117.2 L478.0,117.6 L478.3,118.0 L478.6,118.4 L478.9,118.7 L479.2,118.9 L479.5,119.0 L479.8,119.0 L480.0,118.9 L480.3,118.7 L480.6,118.4 L480.9,118.1 L481.2,117.7 L481.5,117.3 L481.8,116.9 L482.1,116.6 L482.4,116.3 L482.7,116.1 L483.0,115.9 L483.3,115.9 L483.6,115.9 L483.9,116.1 L484.2,116.3 L484.5,116.6 L484.8,116.9 L485.0,117.3 L485.3,117.6 L485.6,118.0 L485.9,118.3 L486.2,118.5 L486.5,118.7 L486.8,118.8 L487.1,118.8 L487.4,118.7 L487.7,118.5 L488.0,118.3 L488.3,118.0 L488.6,117.6 L488.9,117.3 L489.2,117.0 L489.4,116.6 L489.7,116.4 L490.0,116.2 L490.3,116.1 L490.6,116.0 L490.9,116.1 L491.2,116.2 L491.5,116.4 L491.8,116.6 L492.1,117.0 L492.4,117.3 L492.7,117.6 L493.0,118.0 L493.3,118.3 L493.6,118.5 L493.9,118.7 L494.1,118.8 L494.4,118.8 L494.7,118.7 L495.0,118.5 L495.3,118.3 L495.6,118.0 L495.9,117.6 L496.2,117.3 L496.5,116.9 L496.8,116.6 L497.1,116.3 L497.4,116.1 L497.7,115.9 L498.0,115.9 L498.3,115.9 L498.6,116.1 L498.9,116.3 L499.1,116.6 L499.4,116.9 L499.7,117.3 L500.0,117.7 L500.3,118.1 L500.6,118.4 L500.9,118.7 L501.2,118.9 L501.5,119.0 L501.8,119.0 L502.1,118.9 L502.4,118.7 L502.7,118.4 L503.0,118.0 L503.3,117.6 L503.6,117.2 L503.8,116.7 L504.1,116.3 L504.4,116.0 L504.7,115.7 L505.0,115.5 L505.3,115.5 L505.6,115.5 L505.9,115.7 L506.2,116.0 L506.5,116.4 L506.8,116.9 L507.1,117.4 L507.4,117.9 L507.7,118.5 L508.0,118.9 L508.2,119.3 L508.5,119.6 L508.8,119.8 L509.1,119.8 L509.4,119.6 L509.7,119.3 L510.0,118.8 L510.3,118.3 L510.6,117.6 L510.9,116.9 L511.2,116.1 L511.5,115.5 L511.8,114.8 L512.1,114.4 L512.4,114.1 L512.7,113.9 L513.0,114.1 L513.2,114.4 L513.5,115.0 L513.8,115.8 L514.1,116.8 L514.4,117.9 L514.7,119.1 L515.0,120.3 L515.3,121.4 L515.6,122.4 L515.9,123.1 L516.2,123.5 L516.5,123.5 L516.8,123.0 L517.1,122.0 L517.4,120.4 L517.6,118.3 L517.9,115.5 L518.2,112.1 L518.5,108.2 L518.8,103.8 L519.1,99.0 L519.4,93.8 L519.7,88.5 L520.0,83.0" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="285.0" y="151" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="402.5" y="151" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">1</text>
+      <text x="520.0" y="151" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">2</text>
+      <text x="402.5" y="22" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">harmonics up to k = 15</text>
+    </svg>
+    <div class="diagram-cap">Partial sums of the square wave's Fourier series (time in periods). More terms give a closer fit, but a spike of about 9% of the jump stays at every discontinuity — the Gibbs phenomenon (Section 4.4).</div>
+  </div>
+
+</section>
+
+<section class="sec" id="fs-complex">
+  <span class="sec-eyebrow">Section 4.3</span>
+  <h2 class="sec-title">The complex exponential form and the spectrum</h2>
+
+  <p>The cosine-and-sine form is easy to picture but awkward to compute with. Using Euler's formula, cos θ = (e<sup>jθ</sup> + e<sup>−jθ</sup>)/2 and sin θ = (e<sup>jθ</sup> − e<sup>−jθ</sup>)/(2j), the same series collapses into a single sum:</p>
+  <pre><code>x(t) = Σ c_k · e^{jkω₀t}          (k from −∞ to ∞)
+
+c_k = (1/T₀) ∫ x(t) · e^{−jkω₀t} dt          (integral over one period)</code></pre>
+  <p>This is the <strong>complex exponential Fourier series</strong>. Each coefficient c<sub>k</sub> is a complex number that carries both the amplitude and the phase of the harmonic at kω₀. It connects to the trigonometric form by:</p>
+  <pre><code>c₀ = a₀
+c_k = (a_k − j·b_k) / 2      for k &gt; 0
+c_{−k} = conj(c_k)             for any real signal x(t)
+
+Amplitude of the k-th harmonic (a cosine A_k cos(kω₀t + θ_k)):  A_k = 2|c_k|,  θ_k = ∠c_k</code></pre>
+
+  <div class="box pitfall">
+    <span class="box-label">Negative frequencies are not a mystery — they are bookkeeping</span>
+    <p style="margin:0;">A real cosine needs two exponentials: e<sup>jkω₀t</sup> and e<sup>−jkω₀t</sup>. The "negative frequency" term is simply the complex-conjugate partner that makes the sum come out real. Because c<sub>−k</sub> = conj(c<sub>k</sub>), the two halves carry the same information, which is why amplitudes come with a factor of 2: a cosine of amplitude A has c<sub>±1</sub> = A/2 each.</p>
+  </div>
+
+  <h3>The spectrum</h3>
+  <p>Plotting |c<sub>k</sub>| against k (or against frequency kω₀) gives the <strong>line spectrum</strong> of the signal: a picture of how much of each harmonic it contains. For the square wave, c<sub>k</sub> = −j·b<sub>k</sub>/2 = −j·2/(πk) for odd k, and zero for even k and for k = 0, so |c<sub>k</sub>| = 2/(π|k|) at odd k.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 520 175" xmlns="http://www.w3.org/2000/svg">
+      <line x1="30" y1="128.125" x2="490" y2="128.125" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="260.0" y1="25" x2="260.0" y2="135" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="53.0" y1="128.1" x2="53.0" y2="118.4" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="53.0" cy="118.4" r="2.6" fill="var(--signal)"/>
+      <line x1="76.0" y1="128.1" x2="76.0" y2="128.1" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="76.0" cy="128.1" r="2.6" fill="var(--signal)"/>
+      <line x1="99.0" y1="128.1" x2="99.0" y2="115.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="99.0" cy="115.6" r="2.6" fill="var(--signal)"/>
+      <line x1="122.0" y1="128.1" x2="122.0" y2="128.1" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="122.0" cy="128.1" r="2.6" fill="var(--signal)"/>
+      <line x1="145.0" y1="128.1" x2="145.0" y2="110.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="145.0" cy="110.6" r="2.6" fill="var(--signal)"/>
+      <line x1="168.0" y1="128.1" x2="168.0" y2="128.1" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="168.0" cy="128.1" r="2.6" fill="var(--signal)"/>
+      <line x1="191.0" y1="128.1" x2="191.0" y2="98.9" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="191.0" cy="98.9" r="2.6" fill="var(--signal)"/>
+      <line x1="214.0" y1="128.1" x2="214.0" y2="128.1" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="214.0" cy="128.1" r="2.6" fill="var(--signal)"/>
+      <line x1="237.0" y1="128.1" x2="237.0" y2="40.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="237.0" cy="40.6" r="2.6" fill="var(--signal)"/>
+      <line x1="260.0" y1="128.1" x2="260.0" y2="128.1" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="260.0" cy="128.1" r="2.6" fill="var(--signal)"/>
+      <line x1="283.0" y1="128.1" x2="283.0" y2="40.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="283.0" cy="40.6" r="2.6" fill="var(--signal)"/>
+      <line x1="306.0" y1="128.1" x2="306.0" y2="128.1" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="306.0" cy="128.1" r="2.6" fill="var(--signal)"/>
+      <line x1="329.0" y1="128.1" x2="329.0" y2="98.9" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="329.0" cy="98.9" r="2.6" fill="var(--signal)"/>
+      <line x1="352.0" y1="128.1" x2="352.0" y2="128.1" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="352.0" cy="128.1" r="2.6" fill="var(--signal)"/>
+      <line x1="375.0" y1="128.1" x2="375.0" y2="110.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="375.0" cy="110.6" r="2.6" fill="var(--signal)"/>
+      <line x1="398.0" y1="128.1" x2="398.0" y2="128.1" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="398.0" cy="128.1" r="2.6" fill="var(--signal)"/>
+      <line x1="421.0" y1="128.1" x2="421.0" y2="115.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="421.0" cy="115.6" r="2.6" fill="var(--signal)"/>
+      <line x1="444.0" y1="128.1" x2="444.0" y2="128.1" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="444.0" cy="128.1" r="2.6" fill="var(--signal)"/>
+      <line x1="467.0" y1="128.1" x2="467.0" y2="118.4" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="467.0" cy="118.4" r="2.6" fill="var(--signal)"/>
+      <text x="53.0" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-9</text>
+      <text x="145.0" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-5</text>
+      <text x="237.0" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-1</text>
+      <text x="260.0" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="283.0" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">1</text>
+      <text x="375.0" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">5</text>
+      <text x="467.0" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">9</text>
+      <text x="260.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">|c_k| for the square wave: only odd harmonics, falling as 1/k</text>
+    </svg>
+    <div class="diagram-cap">Line spectrum of the ±1 square wave. The fundamental has |c₁| = 2/π ≈ 0.637; the 3rd harmonic is one third as large; all even harmonics vanish.</div>
+  </div>
+
+  <h3>Reading coefficients by inspection</h3>
+  <p>When a signal is already a sum of sinusoids, you do not need any integral. Take x(t) = 2 + 3cos(2t) + sin(6t):</p>
+  <pre><code>Frequencies 2 and 6 rad/s share the largest common ω₀ = 2 (so T₀ = π).
+  2                → c₀ = 2
+  3cos(2t)         → c₁ = c₋₁ = 3/2                    (k = 1, since 2 = 1·ω₀)
+  sin(6t) = (e^{j6t} − e^{−j6t})/(2j)
+                   → c₃ = 1/(2j) = −j/2,  c₋₃ = +j/2   (k = 3, since 6 = 3·ω₀)
+All other c_k = 0.</code></pre>
+
+  <h3>Symmetry shortcuts</h3>
+  <table>
+    <tr><th>If x(t) is…</th><th>Then…</th><th>Example</th></tr>
+    <tr><td>Even, x(−t) = x(t)</td><td>c<sub>k</sub> is real; only cosines (b<sub>k</sub> = 0)</td><td>Triangle or rectangular pulse centered at t = 0</td></tr>
+    <tr><td>Odd, x(−t) = −x(t)</td><td>c<sub>k</sub> is purely imaginary; only sines (a<sub>k</sub> = 0)</td><td>The ±1 square wave above</td></tr>
+    <tr><td>Half-wave symmetric, x(t + T₀/2) = −x(t)</td><td>Only odd harmonics</td><td>The square wave again</td></tr>
+  </table>
+  <p>Checking symmetry first can save you from computing half the integrals — or tell you immediately that your answer must have no even harmonics.</p>
+
+  <div class="box why">
+    <span class="box-label">Why the complex form wins</span>
+    <p style="margin:0;">It needs one formula instead of three, the coefficients carry amplitude and phase together, and the integrals of exponentials are far easier than integrals of products of trig functions. It also extends directly: let the period T₀ grow to infinity and the sum turns into an integral — that is the Fourier transform of Chapter 5.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="fs-properties">
+  <span class="sec-eyebrow">Section 4.4</span>
+  <h2 class="sec-title">Properties, Parseval, and convergence</h2>
+
+  <h3>Parseval's relation — counting power in the spectrum</h3>
+  <p>The average power of a periodic signal (Chapter 1's definition, averaged over one period) equals the sum of the power in each harmonic:</p>
+  <pre><code>P = (1/T₀) ∫ |x(t)|² dt = Σ |c_k|²          (k from −∞ to ∞)</code></pre>
+  <p>Check on the square wave: |x|² = 1 always, so P = 1. From the spectrum: Σ|c<sub>k</sub>|² = 2·Σ<sub>k odd ≥1</sub> 4/(π²k²) = (8/π²) · (1 + 1/9 + 1/25 + …) = (8/π²)(π²/8) = 1. ✓ The power adds up exactly; nothing is lost in going to the frequency domain. Even better, it shows <em>where</em> the power lives: the fundamental alone holds (2/π)²·2 = 8/π² ≈ 81% of the total.</p>
+
+  <h3>Useful properties</h3>
+  <table>
+    <tr><th>Operation on x(t)</th><th>Effect on c<sub>k</sub></th></tr>
+    <tr><td>Linearity: a·x + b·y</td><td>a·c<sub>k</sub> + b·d<sub>k</sub></td></tr>
+    <tr><td>Time shift: x(t − t₀)</td><td>c<sub>k</sub>·e<sup>−jkω₀t₀</sup> — magnitudes unchanged, phase changes by −kω₀t₀</td></tr>
+    <tr><td>Differentiation: dx/dt</td><td>jkω₀·c<sub>k</sub> — high harmonics are amplified</td></tr>
+    <tr><td>Time reversal: x(−t)</td><td>c<sub>−k</sub></td></tr>
+  </table>
+  <p>The differentiation rule explains something you already know from control: differentiating a noisy signal amplifies noise. Noise is rich in high frequencies, and multiplying each harmonic by kω₀ boosts exactly those. It is the frequency-domain reason behind the derivative-term warning in Control Systems Ch. 6.</p>
+
+  <h3>How fast do the coefficients fall? Smoothness decides</h3>
+  <table>
+    <tr><th>Signal has…</th><th>|c<sub>k</sub>| falls like…</th><th>Example</th></tr>
+    <tr><td>Jump discontinuities</td><td>1/k</td><td>Square wave, sawtooth</td></tr>
+    <tr><td>Continuous, but with corners</td><td>1/k²</td><td>Triangle wave</td></tr>
+    <tr><td>Smoother still</td><td>faster than any power (for infinitely smooth signals)</td><td>A pure sinusoid has a single line</td></tr>
+  </table>
+  <p>The sharper the features in time, the wider the spread in frequency — a theme that returns as the time-bandwidth trade-off in Chapter 5. It is also why sharp switching edges (fast PWM, square-wave clocks) radiate electromagnetic noise at many harmonics, and why designers deliberately slow the edges (slew-rate control) to make a design easier to pass EMC tests.</p>
+
+  <h3>Convergence and the Gibbs phenomenon</h3>
+  <p>For the series to converge to x(t), the signal must satisfy the <strong>Dirichlet conditions</strong>: over one period it must be absolutely integrable and have only a finite number of maxima, minima and discontinuities. Every practical periodic signal qualifies. At a jump, the series converges to the <em>midpoint</em> of the two sides (0 for the ±1 square wave).</p>
+
+  <div class="box pitfall">
+    <span class="box-label">Adding more harmonics does not remove the overshoot</span>
+    <p style="margin:0;">Near a discontinuity the partial sum overshoots by about 9% of the jump size (here, a peak of about 1.18 for a jump from −1 to +1). Adding more terms squeezes the overshoot into a narrower and narrower spike, but its height does not shrink. This is the <strong>Gibbs phenomenon</strong>. In practice it means: a brick-wall (sharply truncated) filter applied to a signal with sharp edges produces ringing at those edges, which is one reason real filters use gentle roll-offs.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="fs-lti">
+  <span class="sec-eyebrow">Section 4.5</span>
+  <h2 class="sec-title">Periodic inputs through LTI systems</h2>
+
+  <p>Now combine Sections 4.1 and 4.3. If a periodic input is x(t) = Σ c<sub>k</sub>e<sup>jkω₀t</sup>, then by linearity and the eigenfunction property, each term is simply multiplied by H(jkω₀):</p>
+  <pre><code>y(t) = Σ c_k · H(jkω₀) · e^{jkω₀t}</code></pre>
+  <p>The output is periodic with the same T₀, its Fourier coefficients are c<sub>k</sub>·H(jkω₀), and no convolution integral is needed. This is the time-domain-versus-frequency-domain payoff: convolution in time is multiplication in frequency.</p>
+
+  <div class="box trace">
+    <span class="box-label">Example — a square wave through an RC low-pass</span>
+    <p>Let x(t) be the ±1 square wave with ω₀ = 1 rad/s, and let the system be the RC circuit with RC = 1 s, so H(jω) = 1/(1 + jω). The input's sine terms have amplitudes b<sub>1</sub> = 4/π ≈ 1.273 and b<sub>3</sub> = 4/(3π) ≈ 0.424. Evaluate H at each harmonic:</p>
+    <pre><code>k = 1 (ω = 1):  H(j1) = 1/(1 + j)    →  |H| = 1/√2  ≈ 0.707,   ∠H = −arctan(1) = −45°
+k = 3 (ω = 3):  H(j3) = 1/(1 + 3j)   →  |H| = 1/√10 ≈ 0.316,   ∠H = −arctan(3) ≈ −71.6°
+k = 5 (ω = 5):  H(j5) = 1/(1 + 5j)   →  |H| = 1/√26 ≈ 0.196,   ∠H = −arctan(5) ≈ −78.7°
+
+Output harmonics (amplitude × |H|, phase shifted by ∠H):
+  fundamental:  1.273 × 0.707 ≈ 0.900   → 0.900 · sin(t − 45°)
+  3rd:          0.424 × 0.316 ≈ 0.134   → 0.134 · sin(3t − 71.6°)
+  5th:          0.255 × 0.196 ≈ 0.050   → 0.050 · sin(5t − 78.7°)</code></pre>
+    <p><strong>What happened to the shape.</strong> The fundamental kept 71% of its amplitude, but the 3rd harmonic kept only 32% and the 5th only 20%. In the input the 3rd harmonic was 1/3 of the fundamental; in the output it is 0.134/0.900 ≈ 1/6.7 of the fundamental — a much smaller share. With the high harmonics suppressed, the sharp corners of the square wave round off into the familiar charge-and-discharge curves. The circuit did not "change" the square wave in some mysterious way: it re-weighted each harmonic by its gain and shifted each one by its phase.</p>
+  </div>
+
+  <div class="box why">
+    <span class="box-label">This is what a filter is</span>
+    <p style="margin:0;">A low-pass filter has |H| large at low frequency and small at high frequency; a high-pass is the reverse; a band-pass passes a range. Decomposing a signal into harmonics, weighting each by |H(jkω₀)|, and putting them back together is the entire conceptual content of "filtering". The same idea, with the ω-axis plotted logarithmically, is the Bode plot you will meet in Control Systems II.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="fs-firmware">
+  <span class="sec-eyebrow">Section 4.6</span>
+  <h2 class="sec-title">Measuring harmonics in firmware</h2>
+
+  <p>You will rarely integrate a formula in firmware. Instead you have N ADC samples covering one period, and want the harmonic content. Replace the integral for c<sub>k</sub> by a sum over the samples:</p>
+  <pre><code>c_k ≈ (1/N) Σ x[n] · e^{−j2πkn/N}        (n from 0 to N−1)</code></pre>
+  <p>This is the <strong>discrete Fourier transform (DFT)</strong> coefficient, and Chapter 6 will explain when it is a faithful estimate. A direct C implementation for one harmonic:</p>
+  <pre><code>#include &lt;math.h&gt;
+
+// x[] holds N samples covering EXACTLY one period (or a whole number of periods)
+void harmonic(const float *x, int N, int k, float *re, float *im) {
+    float sr = 0.0f, si = 0.0f;
+    for (int n = 0; n &lt; N; n++) {
+        float ang = 2.0f * (float)M_PI * k * n / N;
+        sr += x[n] * cosf(ang);
+        si -= x[n] * sinf(ang);
+    }
+    *re = sr / N;          // c_k = re + j*im
+    *im = si / N;
+}
+
+// amplitude of the k-th harmonic (for k &gt;= 1):  A_k = 2 * sqrt(re*re + im*im)</code></pre>
+
+  <div class="box what">
+    <span class="box-label">A practical use: total harmonic distortion</span>
+    <p style="margin:0;">To quantify how "dirty" a supposedly sinusoidal signal is (a motor current, an inverter output, mains voltage), compute THD = √(Σ<sub>k≥2</sub> |c<sub>k</sub>|²) / |c<sub>1</sub>|: the power in the harmonics relative to the fundamental. By Parseval's relation, this is the same energy accounting as Section 4.4, done on measured data.</p>
+  </div>
+
+  <div class="box pitfall">
+    <span class="box-label">Two ways this quietly goes wrong</span>
+    <p style="margin:0;"><strong>(1) The window must hold a whole number of periods.</strong> If the buffer cuts a cycle in half, the sum sees an artificial jump at the wrap-around, and energy "leaks" into neighbouring harmonics. <strong>(2) The sample rate must be high enough.</strong> Harmonic k at frequency kf₀ needs a sampling rate above 2kf₀ to be seen correctly; a harmonic above that limit does not vanish — it reappears at the wrong frequency, disguised as a lower one. Chapter 6 (aliasing and the Nyquist theorem) covers exactly why. Cost: N multiply-accumulates <em>per harmonic</em>; for many harmonics Chapter 5 will introduce a far cheaper algorithm, the FFT.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="worked-problem-ss4">
+  <span class="sec-eyebrow">Section 4.7</span>
+  <h2 class="sec-title">Worked problem — the pulse train (PWM) spectrum</h2>
+
+  <div class="box trace">
+    <span class="box-label">Problem</span>
+    <p>A rectangular pulse train has period T₀. Within one period centered on t = 0, x(t) = 1 for |t| &lt; T₁ and 0 for T₁ &lt; |t| &lt; T₀/2. Take a 50% duty cycle, T₁ = T₀/4. (a) Find the complex Fourier coefficients c<sub>k</sub>. (b) Which harmonics are missing? (c) Verify Parseval's relation. (d) What would change for a 25% duty cycle?</p>
+    <pre><code>(a) c_k = (1/T₀) ∫ e^{−jkω₀t} dt    (t from −T₁ to T₁)
+        = (1/T₀) · [ e^{−jkω₀t} / (−jkω₀) ]  from −T₁ to T₁
+        = (1/T₀) · ( e^{jkω₀T₁} − e^{−jkω₀T₁} ) / (jkω₀)
+        = (1/T₀) · 2 sin(kω₀T₁) / (kω₀)
+        = sin(kω₀T₁) / (kπ)                        using T₀ω₀ = 2π
+
+    For k = 0 the integral gives c₀ = 2T₁/T₀ = the duty cycle = 1/2.
+    With T₁ = T₀/4:  ω₀T₁ = π/2, so   c_k = sin(kπ/2) / (kπ)
+
+      c₀ = 1/2,  c₁ = 1/π,  c₂ = 0,  c₃ = −1/(3π),  c₄ = 0,  c₅ = 1/(5π), …
+
+(b) sin(kπ/2) = 0 for every even k, so all even harmonics vanish
+    (the signal is even → c_k real; the 50% duty gives the missing evens).
+
+(c) Time domain: x² = x, so P = (1/T₀)∫x² dt = duty cycle = 1/2.
+    Frequency domain: Σ|c_k|² = (1/2)² + 2 · Σ_{k odd ≥1} 1/(π²k²)
+                     = 1/4 + (2/π²)(π²/8) = 1/4 + 1/4 = 1/2   ✓
+
+(d) For 25% duty, T₁ = T₀/8: c_k = sin(kπ/4)/(kπ). Now c₀ = 1/4,
+    and the zeros fall where kπ/4 is a multiple of π, i.e. every 4th
+    harmonic (k = 4, 8, …). A narrower pulse means the first zero moves
+    to a higher harmonic: the spectrum spreads out.</code></pre>
+
+  <div class="diagram">
+    <svg viewBox="0 0 520 175" xmlns="http://www.w3.org/2000/svg">
+      <line x1="30" y1="126.53846153846153" x2="490" y2="126.53846153846153" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="260.0" y1="25" x2="260.0" y2="135" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="47.7" y1="126.5" x2="47.7" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="47.7" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="65.4" y1="126.5" x2="65.4" y2="121.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="65.4" cy="121.6" r="2.6" fill="var(--signal)"/>
+      <line x1="83.1" y1="126.5" x2="83.1" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="83.1" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="100.8" y1="126.5" x2="100.8" y2="120.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="100.8" cy="120.6" r="2.6" fill="var(--signal)"/>
+      <line x1="118.5" y1="126.5" x2="118.5" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="118.5" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="136.2" y1="126.5" x2="136.2" y2="118.8" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="136.2" cy="118.8" r="2.6" fill="var(--signal)"/>
+      <line x1="153.8" y1="126.5" x2="153.8" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="153.8" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="171.5" y1="126.5" x2="171.5" y2="115.8" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="171.5" cy="115.8" r="2.6" fill="var(--signal)"/>
+      <line x1="189.2" y1="126.5" x2="189.2" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="189.2" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="206.9" y1="126.5" x2="206.9" y2="108.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="206.9" cy="108.6" r="2.6" fill="var(--signal)"/>
+      <line x1="224.6" y1="126.5" x2="224.6" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="224.6" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="242.3" y1="126.5" x2="242.3" y2="72.7" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="242.3" cy="72.7" r="2.6" fill="var(--signal)"/>
+      <line x1="260.0" y1="126.5" x2="260.0" y2="41.9" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="260.0" cy="41.9" r="2.6" fill="var(--signal)"/>
+      <line x1="277.7" y1="126.5" x2="277.7" y2="72.7" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="277.7" cy="72.7" r="2.6" fill="var(--signal)"/>
+      <line x1="295.4" y1="126.5" x2="295.4" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="295.4" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="313.1" y1="126.5" x2="313.1" y2="108.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="313.1" cy="108.6" r="2.6" fill="var(--signal)"/>
+      <line x1="330.8" y1="126.5" x2="330.8" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="330.8" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="348.5" y1="126.5" x2="348.5" y2="115.8" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="348.5" cy="115.8" r="2.6" fill="var(--signal)"/>
+      <line x1="366.2" y1="126.5" x2="366.2" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="366.2" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="383.8" y1="126.5" x2="383.8" y2="118.8" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="383.8" cy="118.8" r="2.6" fill="var(--signal)"/>
+      <line x1="401.5" y1="126.5" x2="401.5" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="401.5" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="419.2" y1="126.5" x2="419.2" y2="120.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="419.2" cy="120.6" r="2.6" fill="var(--signal)"/>
+      <line x1="436.9" y1="126.5" x2="436.9" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="436.9" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <line x1="454.6" y1="126.5" x2="454.6" y2="121.6" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="454.6" cy="121.6" r="2.6" fill="var(--signal)"/>
+      <line x1="472.3" y1="126.5" x2="472.3" y2="126.5" stroke="var(--signal)" stroke-width="1.6"/>
+      <circle cx="472.3" cy="126.5" r="2.6" fill="var(--signal)"/>
+      <text x="47.7" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-12</text>
+      <text x="118.5" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-8</text>
+      <text x="189.2" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-4</text>
+      <text x="260.0" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="330.8" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">4</text>
+      <text x="401.5" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">8</text>
+      <text x="472.3" y="148" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">12</text>
+      <text x="260.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">|c_k| for a 50% duty pulse train</text>
+    </svg>
+    <div class="diagram-cap">Even harmonics vanish; odd ones follow the envelope |sin(kπ/2)|/(kπ). The envelope shape is a sinc function — it returns as the Fourier transform of a single pulse in Chapter 5.</div>
+  </div>
+
+    <p><strong>What to take away:</strong> the same result gave the harmonic content, the missing-harmonic rule, and a power check in one calculation. Note the connection between (d) and Section 4.4: narrowing the pulse in time widened its spectrum. Also note that this is the spectrum of a PWM signal — the duty cycle of a microcontroller's PWM output (Microcontrollers Ch. 3) sets c₀, which is exactly why a low-pass filter on a PWM pin recovers a DC voltage equal to the duty cycle times the supply.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="recap-ss4">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>An LTI system maps e<sup>jωt</sup> to H(jω)·e<sup>jωt</sup>, where H(jω) = ∫h(τ)e<sup>−jωτ</sup>dτ is the <strong>frequency response</strong>. Exponentials are the eigenfunctions of LTI systems, which is why breaking signals into them makes analysis easy.</li>
+    <li>A periodic signal with period T₀ (ω₀ = 2π/T₀) is a sum of harmonics at kω₀. The <strong>trigonometric series</strong> uses a₀, a<sub>k</sub>, b<sub>k</sub>; the <strong>complex series</strong> uses c<sub>k</sub> = (1/T₀)∫x(t)e<sup>−jkω₀t</sup>dt, with c<sub>−k</sub> = conj(c<sub>k</sub>) for real signals and amplitude A<sub>k</sub> = 2|c<sub>k</sub>|.</li>
+    <li>The coefficient formulas work because the harmonics are orthogonal over one period — the same idea as a dot product of orthogonal basis vectors. The square wave has only odd sine harmonics with b<sub>k</sub> = 4/(kπ).</li>
+    <li>Symmetry shortcuts: even → real c<sub>k</sub> (cosines only); odd → imaginary c<sub>k</sub> (sines only); half-wave symmetric → only odd harmonics.</li>
+    <li><strong>Parseval:</strong> average power = Σ|c<sub>k</sub>|². A time shift changes only phases; differentiation multiplies c<sub>k</sub> by jkω₀ (amplifying high frequencies). Coefficients fall as 1/k for jump discontinuities, 1/k² for corners. The <strong>Gibbs phenomenon</strong> leaves a ~9% overshoot at jumps no matter how many terms are added.</li>
+    <li>Through an LTI system, each harmonic is multiplied by H(jkω₀): output coefficients are c<sub>k</sub>·H(jkω₀). That is filtering — convolution in time becomes multiplication in frequency.</li>
+    <li>In firmware, c<sub>k</sub> ≈ (1/N)Σx[n]e<sup>−j2πkn/N</sup> over a window containing whole periods. A partial period leaks energy; a sample rate that is too low aliases high harmonics (Chapter 6).</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-ss4">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>Why can a periodic signal with period T₀ contain only frequencies that are integer multiples of 2π/T₀?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Every building block must itself repeat every T₀ so the sum stays periodic. e<sup>jkω₀t</sup> repeats every T₀ exactly when k is an integer (it completes k full cycles). A non-integer multiple would not return to its starting value after T₀, and adding it would break the periodicity.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>For x(t) = 2 + 3cos(2t) + sin(6t), what are ω₀, the non-zero c<sub>k</sub>, and the average power?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">ω₀ = 2 rad/s (the largest common frequency). c₀ = 2, c<sub>±1</sub> = 3/2, c₃ = −j/2, c<sub>−3</sub> = +j/2. By Parseval, P = 2² + 2·(3/2)² + 2·(1/2)² = 4 + 4.5 + 0.5 = 9. Time-domain check: 4 (DC) + 9/2 (cosine) + 1/2 (sine) = 9 ✓.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>A signal is odd and half-wave symmetric. What can you say about its Fourier series before computing anything?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Being odd means all a<sub>k</sub> = 0 and a₀ = 0 (only sines; c<sub>k</sub> purely imaginary). Half-wave symmetry means only odd harmonics appear. So the series contains only sin(kω₀t) terms with odd k — exactly the square-wave structure.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 4</span>
+    <p>You add 100 more harmonics to a square wave's partial sum. Does the overshoot at the edges disappear?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">No. The overshoot stays at about 9% of the jump height (a peak near 1.18 for a −1 to +1 jump). More terms make the spike narrower and move it closer to the edge, but do not lower it. This is the Gibbs phenomenon.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 5</span>
+    <p>A square wave with ω₀ = 1 rad/s passes through H(jω) = 1/(1 + jω). By what factor and phase is the 3rd harmonic changed?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">H(j3) = 1/(1 + 3j), so the gain is 1/√10 ≈ 0.316 and the phase shift is −arctan 3 ≈ −71.6°. The 3rd harmonic's amplitude 4/(3π) ≈ 0.424 becomes ≈ 0.134, and it is delayed in phase by about 71.6°.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 6</span>
+    <p>Why must a firmware harmonic measurement use a window containing a whole number of periods?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">The DFT sum implicitly treats the window as one period repeating. If the window ends mid-cycle, the wrap-around creates an artificial discontinuity, and its energy spreads across many harmonics (spectral leakage), corrupting the measurement.</div>
+  </div>
+
+</section>
+
+<div class="chapter-nav">
+  <a href="ss-03-convolution.html"><span class="lbl">Previous</span>← 3. Convolution</a>
+  <a href="ss-05-fourier-transform.html" class="next-wrap"><span class="lbl">Next chapter</span>5. The Fourier Transform →</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

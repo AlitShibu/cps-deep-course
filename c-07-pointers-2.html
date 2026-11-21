@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C Ch.7 — Pointers II — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">C Programming / Ch. 7: Pointers II</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// C Programming Fundamentals — Chapter 7 of 13</span>
+  <h1>Pointers II — Dynamic Memory &amp; Pointer Arithmetic</h1>
+  <p>Chapter 6 gave you pointers as a way to reach existing variables. This chapter gives you memory that doesn't belong to any variable at all — memory you request, use, and must explicitly give back. It's also where Java's garbage collector's absence stops being an abstract fact and becomes something you have to actively manage, every time.</p>
+  <div class="meta"><span>Chapter 7 of 13</span><span>Standard C</span><span>Builds directly on Chapter 6</span></div>
+</section>
+<section class="sec" id="stack-vs-heap">
+  <span class="sec-eyebrow">Section 7.1</span>
+  <h2 class="sec-title">Two kinds of memory: the stack and the heap</h2>
+
+  <p>Chapter 4, Section 4.1 introduced the <strong>stack</strong> — fast, automatic memory tied to function calls, growing and shrinking as functions are entered and exited. There's a second region of memory, the <strong>heap</strong>, that works completely differently: it doesn't automatically grow or shrink with function calls — memory there is allocated and freed <em>explicitly</em>, on your command, and it stays reserved for as long as you want, independent of which function is currently running.</p>
+
+  <table>
+    <tr><th></th><th>Stack</th><th>Heap</th></tr>
+    <tr><td>Managed by</td><td>Automatically, on function call/return</td><td>You, explicitly (malloc/free)</td></tr>
+    <tr><td>Lifetime</td><td>Tied to the function call that created it</td><td>Until you explicitly free it — can outlive the function that created it</td></tr>
+    <tr><td>Speed</td><td>Very fast (just moving a pointer)</td><td>Slower (the allocator has to find free space)</td></tr>
+    <tr><td>Size limits</td><td>Small, fixed per-program (can overflow — Ch.4, recursion)</td><td>Much larger, limited mainly by available system memory</td></tr>
+    <tr><td>Typical use</td><td>Ordinary local variables</td><td>Data whose size isn't known until runtime, or that must outlive its creating function</td></tr>
+  </table>
+
+  <div class="box why">
+    <span class="box-label">Why you need the heap at all</span>
+    <p style="margin:0;">Recall Chapter 4's hard rule: never return the address of a local (stack) variable — its memory is reclaimed the instant the function returns. But sometimes you genuinely need to create data inside one function and have it survive after that function returns (build an array whose size isn't known until runtime, for instance — arrays on the stack need a fixed size known when the code is written, per Chapter 5). The heap is memory that doesn't disappear when a function returns — it disappears only when you say so, which is exactly what lets you solve this class of problem.</p>
+  </div>
+</section>
+
+<section class="sec" id="malloc-free">
+  <span class="sec-eyebrow">Section 7.2</span>
+  <h2 class="sec-title">malloc and free — requesting and returning heap memory</h2>
+
+  <pre><code>#include &lt;stdlib.h&gt;
+
+int *p = malloc(sizeof(int));   // request enough heap memory for one int
+if (p == NULL) {                 // malloc failed (out of memory) -- ALWAYS check
+    printf("Allocation failed\n");
+    return 1;
+}
+*p = 42;                          // use it, exactly like any other pointer
+printf("%d\n", *p);               // 42
+
+free(p);                          // give the memory back -- REQUIRED
+p = NULL;                         // good practice: prevent accidental reuse (Section 7.4)</code></pre>
+
+  <p><code>malloc</code> (memory allocate) takes a number of bytes and returns a pointer to a freshly reserved block of that size on the heap — or <code>NULL</code> if the request couldn't be satisfied (Chapter 6, Section 6.2's NULL-checking habit is not optional here). <code>sizeof(int)</code> is the idiomatic way to request "enough space for one int," rather than hardcoding a byte count that might not match this system's actual int size (Chapter 2).</p>
+
+  <h3>Allocating an array on the heap</h3>
+  <pre><code>int n = 10;   // suppose this came from user input -- unknown until runtime!
+int *arr = malloc(n * sizeof(int));   // enough space for n ints
+if (arr == NULL) { /* handle failure */ }
+
+for (int i = 0; i < n; i++) {
+    arr[i] = i * i;    // array-style indexing works fine on a malloc'd pointer
+}
+
+printf("%d\n", arr[5]);   // 25
+
+free(arr);
+arr = NULL;</code></pre>
+
+  <div class="box why">
+    <span class="box-label">This solves a real problem Chapter 5 couldn't</span>
+    <p style="margin:0;">A stack-allocated array's size (Chapter 5, Section 5.1) must be a compile-time constant — the compiler needs to know exactly how much stack space to reserve when the code is written. <code>malloc(n * sizeof(int))</code> can request a size based on <code>n</code>, a value only known while the program is actually running (read from user input, a sensor, a file). This is the standard, necessary technique any time an array's size genuinely isn't known in advance.</p>
+  </div>
+</section>
+<section class="sec" id="memory-bugs">
+  <span class="sec-eyebrow">Section 7.3</span>
+  <h2 class="sec-title">The three classic heap bugs — and how to actually avoid them</h2>
+
+  <p>Java's garbage collector exists specifically to make these three mistakes impossible. In C, avoiding them is entirely your responsibility, every single time you use <code>malloc</code>.</p>
+
+  <h3>1. Memory leaks — forgetting to free</h3>
+  <pre><code>void leaky_function(void) {
+    int *p = malloc(100 * sizeof(int));
+    // ... use p ...
+    // forgot to call free(p) before the function returns!
+    // p (the pointer) is gone (it was a local stack variable) --
+    // but the 100 ints it pointed to are still reserved on the heap,
+    // and now NOTHING can reach them to free them. Leaked, forever
+    // (until the program exits).
+}</code></pre>
+  <div class="box why">
+    <span class="box-label">Why this is worse than it sounds</span>
+    <p style="margin:0;">A single leak in a short-lived program is harmless — the operating system reclaims all its memory when the program exits regardless. But a leak inside a function called repeatedly in a long-running program (a control loop, a server, firmware that runs for weeks) steadily consumes more and more memory over time, eventually exhausting it entirely — a slow, creeping failure that can take hours or days to manifest, making it notoriously hard to diagnose after the fact.</p>
+  </div>
+
+  <h3>2. Use-after-free — using memory you already gave back</h3>
+  <pre><code>int *p = malloc(sizeof(int));
+*p = 42;
+free(p);           // the memory is returned to the system
+printf("%d\n", *p); // UNDEFINED BEHAVIOR -- p is a "dangling pointer" now</code></pre>
+  <div class="box pitfall">
+    <span class="box-label">Why this is dangerous rather than just wrong</span>
+    <p style="margin:0;">After <code>free(p)</code>, <code>p</code>'s address is no longer "yours" — the system is free to hand that same memory to a completely different, unrelated <code>malloc</code> call elsewhere in the program at any moment. Dereferencing <code>p</code> afterward might read old, stale data (appearing to "still work," misleadingly), or might read/corrupt someone else's actively-used data — and which of these happens can vary run to run, making this bug notoriously hard to reproduce and debug. <strong>The standard defense:</strong> set a pointer to <code>NULL</code> immediately after freeing it (as shown in Section 7.2) — dereferencing <code>NULL</code> crashes loudly and immediately (Chapter 6, Section 6.2), turning an unpredictable, silent bug into an obvious, easy-to-locate one.</p>
+  </div>
+
+  <h3>3. Double-free — freeing the same memory twice</h3>
+  <pre><code>int *p = malloc(sizeof(int));
+free(p);
+free(p);   // undefined behavior -- can corrupt the heap's internal bookkeeping</code></pre>
+  <p>This is a direct consequence of not following the <code>free</code> + <code>NULL</code> habit above — <code>free(NULL)</code> is explicitly safe and does nothing (a guarantee from the C standard), so if the first <code>free</code> is always immediately followed by setting the pointer to <code>NULL</code>, an accidental second <code>free</code> call becomes a harmless no-op instead of a heap-corrupting bug.</p>
+
+  <div class="box theory">
+    <span class="box-label">The single habit that prevents all three</span>
+    <p style="margin:0;">Follow one consistent rule: <strong>every <code>malloc</code> gets exactly one matching <code>free</code>, and the pointer is set to <code>NULL</code> immediately after</strong>. This one habit — not a complex tool or technique — is what separates memory-safe C code from code riddled with these three bugs. Professional embedded and systems C code lives or dies by this discipline, since these categories of bugs are also, historically, among the most exploited security vulnerabilities in real-world software.</p>
+  </div>
+</section>
+<section class="sec" id="pointer-arithmetic">
+  <span class="sec-eyebrow">Section 7.4</span>
+  <h2 class="sec-title">Pointer arithmetic, in full</h2>
+
+  <p>Chapter 6, Section 6.4 introduced <code>p + 1</code> advancing by one full element's worth of bytes, not one byte. Here's the complete picture:</p>
+  <pre><code>int arr[5] = {10, 20, 30, 40, 50};
+int *p = arr;
+
+p = p + 2;            // advances by 2 * sizeof(int) bytes -- now points at arr[2]
+printf("%d\n", *p);   // 30
+
+int *q = &arr[4];
+int diff = q - p;      // POINTER SUBTRACTION -- gives a count of ELEMENTS between them, not bytes
+printf("%d\n", diff);  // 2 (arr[4] is 2 elements past arr[2])</code></pre>
+
+  <div class="box theory">
+    <span class="box-label">Why pointer subtraction gives element count, not bytes</span>
+    <p style="margin:0;">This is deliberately symmetric with pointer addition — since <code>p + 1</code> means "one element forward," <code>q - p</code> naturally means "how many elements apart are these two addresses," with the byte-level arithmetic (dividing by <code>sizeof(the pointed-to type)</code>) handled automatically by the compiler. This only produces a meaningful result when both pointers point into the <em>same array</em> — subtracting pointers into two unrelated allocations is undefined behavior, since there's no meaningful "number of elements" between two unrelated blocks of memory.</p>
+  </div>
+
+  <h3>realloc — resizing a heap allocation</h3>
+  <pre><code>int *arr = malloc(5 * sizeof(int));
+// ... arr fills up, need more room ...
+int *new_arr = realloc(arr, 10 * sizeof(int));  // try to grow to 10 ints
+if (new_arr == NULL) {
+    // realloc failed -- IMPORTANT: the ORIGINAL arr is still valid and unfreed here
+    free(arr);
+    return 1;
+}
+arr = new_arr;   // only overwrite arr once we KNOW realloc succeeded</code></pre>
+  <div class="box pitfall">
+    <span class="box-label">A subtle, common realloc bug</span>
+    <p style="margin:0;">Writing <code>arr = realloc(arr, ...)</code> directly is a common mistake: if <code>realloc</code> fails, it returns <code>NULL</code> — and if you've already overwritten <code>arr</code> with that <code>NULL</code>, you've lost the only pointer to your original, still-valid, still-allocated memory, causing a leak (Section 7.3) at the exact moment you were trying to handle an error gracefully. Always assign <code>realloc</code>'s result to a <em>different</em> variable first, check it, and only then update your original pointer, as shown above.</p>
+  </div>
+</section>
+
+<section class="sec" id="dynamic-worked-problem">
+  <span class="sec-eyebrow">Section 7.5</span>
+  <h2 class="sec-title">Worked problem — a growable list from scratch</h2>
+
+  <p>This problem ties Chapters 5, 6, and 7 together: build a simple dynamic array that grows as needed — conceptually the same idea behind Java's <code>ArrayList</code>, but built by hand, with every allocation decision explicit.</p>
+
+  <pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+typedef struct {          // previewing Chapter 8's struct syntax slightly early
+    int *data;
+    int size;               // how many elements are actually used
+    int capacity;            // how many elements there's room for
+} IntList;
+
+void list_init(IntList *list) {
+    list->capacity = 4;
+    list->size = 0;
+    list->data = malloc(list->capacity * sizeof(int));
+}
+
+void list_push(IntList *list, int value) {
+    if (list->size == list->capacity) {          // out of room -- grow
+        list->capacity *= 2;
+        int *new_data = realloc(list->data, list->capacity * sizeof(int));
+        if (new_data == NULL) { return; }          // handle failure -- Section 7.4's lesson
+        list->data = new_data;
+    }
+    list->data[list->size] = value;
+    list->size++;
+}
+
+void list_free(IntList *list) {
+    free(list->data);
+    list->data = NULL;
+    list->size = list->capacity = 0;
+}
+
+int main(void) {
+    IntList list;
+    list_init(&list);
+    for (int i = 0; i < 10; i++) {
+        list_push(&list, i * i);
+    }
+    for (int i = 0; i < list.size; i++) {
+        printf("%d ", list.data[i]);
+    }
+    printf("\n");
+    list_free(&list);
+    return 0;
+}
+// Output: 0 1 4 9 16 25 36 49 64 81</code></pre>
+
+  <p><strong>What just happened:</strong> the list starts with room for 4 elements. Every time <code>list_push</code> finds it's full, it doubles the capacity via <code>realloc</code> (following Section 7.4's safe pattern exactly) and keeps going — the array grows transparently as needed, with the caller never needing to know or manage the current capacity directly. This is a genuinely realistic, complete example of dynamic memory management as it's actually used in real C code, combining pointers (Ch.6), arrays (Ch.5), and heap allocation (this chapter) into one working tool.</p>
+</section>
+<section class="sec" id="recap-c7">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>The <strong>heap</strong> is memory you explicitly request (<code>malloc</code>) and return (<code>free</code>) — unlike the stack, it isn't tied to function calls, letting data outlive the function that created it or have a size only known at runtime.</li>
+    <li>Always check <code>malloc</code>'s return value for <code>NULL</code> before using it — allocation can fail.</li>
+    <li>The three classic heap bugs — <strong>memory leaks</strong> (forgot to free), <strong>use-after-free</strong> (used memory after freeing it), and <strong>double-free</strong> — are all prevented by one consistent habit: every <code>malloc</code> gets exactly one <code>free</code>, immediately followed by setting the pointer to <code>NULL</code>.</li>
+    <li><strong>Pointer arithmetic</strong> moves by whole elements, not bytes; pointer subtraction gives an element count, and only makes sense between pointers into the same array.</li>
+    <li><strong>realloc</strong> can fail — always assign its result to a temporary variable first, check for <code>NULL</code>, and only then overwrite your original pointer, or you risk leaking the original allocation.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-c7">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>Why can't you always use a stack-allocated array (Chapter 5) instead of malloc when you need an array whose size depends on user input?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">A stack array's size must be a compile-time constant, known when the code is written. malloc can request a size based on a runtime value (like user input), which a plain stack array cannot do.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>What single habit, consistently applied, prevents memory leaks, use-after-free, and double-free bugs?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Every malloc gets exactly one matching free, with the pointer immediately set to NULL afterward — this ensures memory isn't forgotten (leak), a stale pointer crashes loudly and immediately rather than silently corrupting data (use-after-free becomes a safe NULL dereference), and an accidental second free call on an already-NULL pointer is a safe no-op (double-free prevented).</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>Why should you write "int *new_p = realloc(p, newsize); if (new_p == NULL) {...}" instead of "p = realloc(p, newsize);" directly?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">If realloc fails, it returns NULL. Overwriting p directly with that NULL loses the only pointer to the original, still-valid allocation, causing a memory leak at the exact moment you were trying to handle the failure. Assigning to a separate variable first preserves the original pointer until you've confirmed the reallocation succeeded.</div>
+  </div>
+</section>
+
+<div class="chapter-nav">
+  <a href="c-06-pointers-1.html"><span class="lbl">Previous</span>← 6. Pointers I — Fundamentals</a>
+  <a href="c-08-structs.html" class="next-wrap"><span class="lbl">Next chapter</span>8. Structs, Unions & Typedefs →</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSA Ch.5 — Recursion &amp; Divide and Conquer — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">Data Structures &amp; Algorithms / Ch. 5: Recursion &amp; Divide and Conquer</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// Data Structures &amp; Algorithms — Chapter 5 of 11</span>
+  <h1>Recursion &amp; Divide and Conquer</h1>
+  <p>A recursive function solves a problem by calling itself on a smaller piece of the same problem. It is the natural way to express anything that is itself made of smaller copies of itself: a nested expression, a folder tree, a search that halves its range. This chapter teaches recursion as a discipline (base case, progress, and the call stack that makes it work), shows how to read a recursion's cost off its call tree, and develops divide and conquer, the strategy behind binary search and, in the next chapter, merge sort. It also takes seriously the thing textbooks skip: every recursive call costs stack memory, which on a microcontroller is the scarcest resource you have. So the chapter ends with how to bound recursion, and how to turn it into a loop with an explicit stack.</p>
+  <div class="meta"><span>Chapter 5 of 11</span><span>Builds on: DSA Ch. 1 (Big-O, stack space), Ch. 4 (stacks), C Ch. 4 (functions, recursion)</span><span>Leads into: Sorting &amp; Searching, Trees, Graphs, Dynamic Programming</span></div>
+</section>
+
+<section class="sec" id="recursion-anatomy">
+  <span class="sec-eyebrow">Section 5.1</span>
+  <h2 class="sec-title">The anatomy of a recursive function</h2>
+
+  <p>Every correct recursive function has the same three parts. Miss any one and it either returns wrong answers or never stops.</p>
+  <table>
+    <tr><th>Part</th><th>Role</th><th>In factorial</th></tr>
+    <tr><td>Base case</td><td>An input small enough to answer directly, with no further call</td><td><code>n &lt;= 1</code> returns 1</td></tr>
+    <tr><td>Recursive case</td><td>Express the answer in terms of the same function on a smaller input</td><td><code>n * fact(n − 1)</code></td></tr>
+    <tr><td>Progress</td><td>Each call must move strictly closer to a base case</td><td><code>n − 1</code> shrinks toward 1</td></tr>
+  </table>
+  <pre><code>unsigned long fact(unsigned n) {
+    if (n &lt;= 1) return 1;            // base case: stop here
+    return n * fact(n - 1);          // recursive case: smaller problem, then combine
+}</code></pre>
+  <pre><code>def fact(n):
+    return 1 if n &lt;= 1 else n * fact(n - 1)</code></pre>
+
+  <h3>What actually happens: the call stack</h3>
+  <p>Calling <code>fact(4)</code> does not compute anything until it reaches the base case. Each call pauses, waiting for the result of the call it made, and each paused call occupies a <strong>stack frame</strong> (Chapter 4's call stack). The frames pile up on the way down and are released one by one on the way back up.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 660 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Call stack for fact(4): four frames stacked, then returning 1, 2, 6, 24">
+      <defs><marker id="arr51" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--copper)"/></marker></defs>
+      <g font-family="Space Mono, monospace" font-size="12.5" text-anchor="middle">
+        <text x="150" y="20" style="fill:var(--muted)">on the way DOWN (frames pile up)</text>
+        <rect x="40" y="170" width="220" height="36" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="150" y="193" style="fill:var(--text)">fact(4): waits for 4 × fact(3)</text>
+        <rect x="40" y="134" width="220" height="36" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="150" y="157" style="fill:var(--text)">fact(3): waits for 3 × fact(2)</text>
+        <rect x="40" y="98"  width="220" height="36" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="150" y="121" style="fill:var(--text)">fact(2): waits for 2 × fact(1)</text>
+        <rect x="40" y="62"  width="220" height="36" style="fill:var(--surface);stroke:var(--copper);stroke-width:1.8"/><text x="150" y="85" style="fill:var(--copper)">fact(1): base case → 1</text>
+        <text x="500" y="20" style="fill:var(--muted)">on the way UP (results flow back)</text>
+        <text x="500" y="85"  style="fill:var(--text)">fact(1) returns 1</text>
+        <text x="500" y="121" style="fill:var(--text)">fact(2) returns 2 × 1 = 2</text>
+        <text x="500" y="157" style="fill:var(--text)">fact(3) returns 3 × 2 = 6</text>
+        <text x="500" y="193" style="fill:var(--signal)">fact(4) returns 4 × 6 = 24</text>
+        <line x1="268" y1="80" x2="372" y2="80" style="stroke:var(--copper);stroke-width:1.8" marker-end="url(#arr51)"/>
+        <text x="330" y="222" style="fill:var(--muted)">4 frames alive at the deepest point: depth n means O(n) stack space</text>
+      </g>
+    </svg>
+    <div class="diagram-cap">Fig 5.1 — The call stack for fact(4): the work is multiplied on the way back up.</div>
+  </div>
+
+  <p>This is where Chapter 1's warning becomes concrete: a recursion n levels deep holds n frames at once, so it uses O(n) stack space even though it allocates nothing explicitly. For <code>fact(4)</code> the cost is trivial. The important question for firmware is always <em>how deep can this go, and how big is a frame?</em> On the 64-bit test machine, compiling the function above with <code>gcc -O0 -fstack-usage</code> reported a 48-byte frame for <code>fact</code>. That number is specific to that compiler, optimization level and CPU; an 8-bit AVR frame would be much smaller, an optimizing compiler may shrink or remove it, and you should measure your own target.</p>
+
+  <div class="box pitfall">
+    <span class="box-label">Three ways recursion fails</span>
+    <p style="margin:0;"><strong>1. No base case, or a base case that is never reached</strong> (calling <code>fact(n)</code> with a version that stops at <code>n == 0</code> but passing a negative or unsigned-wrapped value): the recursion never terminates and the stack overflows. <strong>2. No progress</strong> (calling <code>f(n)</code> from inside <code>f(n)</code>): same result. <strong>3. The answer outgrows the type.</strong> Here <code>fact(12) = 479,001,600</code> fits in a 32-bit integer, but <code>fact(13) = 6,227,020,800</code> does not: stored in a 32-bit unsigned type it wraps silently to 1,932,053,504. Recursion that is correct in structure can still be wrong in arithmetic.</p>
+  </div>
+</section>
+
+<section class="sec" id="recursive-thinking">
+  <span class="sec-eyebrow">Section 5.2</span>
+  <h2 class="sec-title">Thinking recursively: three small problems</h2>
+  <p>The way to write a recursive function is to assume the function already works for smaller inputs and ask only: <em>how do I get the answer for this input from the answer for a smaller one?</em> You do not trace the whole recursion in your head; you check the base case and the one-step relationship. Three examples build the habit.</p>
+
+  <h3>Euclid's GCD: a recursion that shrinks fast</h3>
+  <p>The greatest common divisor of a and b equals the GCD of b and <code>a % b</code>, and the GCD of anything with 0 is that number.</p>
+  <pre><code>unsigned gcd(unsigned a, unsigned b) {
+    return b == 0 ? a : gcd(b, a % b);        // base: b == 0.  Progress: b strictly decreases
+}</code></pre>
+  <pre><code>gcd(48, 18) → gcd(18, 12) → gcd(12, 6) → gcd(6, 0) → 6          4 calls
+gcd(1071, 462) → gcd(462, 147) → gcd(147, 21) → gcd(21, 0) → 21  4 calls</code></pre>
+  <p>Each step replaces the pair by (b, a mod b), and a mod b is always smaller than b, so progress is guaranteed. The recursive call is the very last thing the function does; this shape (called <em>tail recursion</em>) matters in Section 5.5.</p>
+
+  <h3>Exponentiation by squaring: halving the problem</h3>
+  <p>Computing x<sup>n</sup> with n − 1 multiplications is O(n). But x<sup>n</sup> = (x<sup>n/2</sup>)<sup>2</sup> for even n, and x · (x<sup>⌊n/2⌋</sup>)<sup>2</sup> for odd n. One recursive call on half the exponent, then one or two multiplications:</p>
+  <pre><code>long power(long x, unsigned n) {
+    if (n == 0) return 1;                  // base case
+    long half = power(x, n / 2);           // solve ONE half-size problem
+    long r = half * half;
+    if (n % 2) r *= x;                     // odd exponent: one extra factor
+    return r;
+}</code></pre>
+  <p>Instrumented, <code>power(2, 10)</code> made 5 calls (exponents 10, 5, 2, 1, 0) and 6 multiplications, against 9 for the plain loop. For n = 1,000 it made 11 calls and 16 multiplications instead of 999. Since the exponent halves each call, the depth is ⌊log₂ n⌋ + 2 including the base call: O(log n) time and O(log n) stack. (The values overflow quickly for a <code>long</code>; the point here is the call pattern, and the same trick works for matrix powers and modular arithmetic.)</p>
+
+  <h3>Summing an array: linear versus balanced recursion</h3>
+  <p>Summing <code>a[0..n−1]</code> recursively can peel off one element at a time or split in half. Both are correct and both are O(n) in time, but their stack depths differ enormously.</p>
+  <pre><code>long sum_linear(const int a[], int n) {                 // depth n
+    return n == 0 ? 0 : a[n - 1] + sum_linear(a, n - 1);
+}
+
+long sum_dc(const int a[], int lo, int hi) {            // sums a[lo..hi-1], depth ~ log n
+    if (hi - lo == 0) return 0;
+    if (hi - lo == 1) return a[lo];
+    int mid = lo + (hi - lo) / 2;
+    return sum_dc(a, lo, mid) + sum_dc(a, mid, hi);
+}</code></pre>
+  <p>On the array 1, 2, …, 1000 (sum 500,500) both returned the right answer, but the deepest call chain was <strong>1,001 frames</strong> for <code>sum_linear</code> and <strong>11 frames</strong> for <code>sum_dc</code>. Same work, same answer, a ninety-fold difference in stack. That contrast, depth <em>n</em> against depth <em>log n</em>, is the practical reason divide and conquer is attractive on small machines. (In real code you would just use a loop for a sum, which needs no stack at all; the example is about how recursion shape controls memory.)</p>
+</section>
+
+<section class="sec" id="recurrence-cost">
+  <span class="sec-eyebrow">Section 5.3</span>
+  <h2 class="sec-title">Reading the cost of a recursion</h2>
+
+  <p>Chapter 1 counted the cost of loops by multiplying and adding. For recursion, the equivalent tool is the <strong>recursion tree</strong>: draw each call as a node, its recursive calls as children, write the work done at that node itself, and add up the nodes level by level. The cost is then (work per level) × (number of levels), when the work per level is uniform.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 660 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Recursion tree for splitting a problem of size 8 in half repeatedly; each level does total work 8">
+      <g font-family="Space Mono, monospace" font-size="12.5" text-anchor="middle">
+        <rect x="190" y="14" width="60" height="28" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="220" y="33" style="fill:var(--text)">n=8</text>
+        <rect x="100" y="62" width="60" height="28" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="130" y="81" style="fill:var(--text)">n=4</text>
+        <rect x="280" y="62" width="60" height="28" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="310" y="81" style="fill:var(--text)">n=4</text>
+        <rect x="55"  y="110" width="44" height="28" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="77" y="129" style="fill:var(--text)">2</text>
+        <rect x="145" y="110" width="44" height="28" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="167" y="129" style="fill:var(--text)">2</text>
+        <rect x="235" y="110" width="44" height="28" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="257" y="129" style="fill:var(--text)">2</text>
+        <rect x="325" y="110" width="44" height="28" style="fill:var(--surface-2);stroke:var(--signal-dim);stroke-width:1.5"/><text x="347" y="129" style="fill:var(--text)">2</text>
+        <g style="fill:var(--surface);stroke:var(--copper);stroke-width:1.2">
+          <rect x="40" y="158" width="26" height="26"/><rect x="70" y="158" width="26" height="26"/><rect x="100" y="158" width="26" height="26"/><rect x="130" y="158" width="26" height="26"/>
+          <rect x="160" y="158" width="26" height="26"/><rect x="190" y="158" width="26" height="26"/><rect x="220" y="158" width="26" height="26"/><rect x="250" y="158" width="26" height="26"/>
+        </g>
+        <text x="220" y="204" style="fill:var(--muted)">8 leaves of size 1</text>
+        <g style="stroke:var(--border);stroke-width:1.5">
+          <line x1="205" y1="42" x2="140" y2="62"/><line x1="235" y1="42" x2="300" y2="62"/>
+          <line x1="115" y1="90" x2="80" y2="110"/><line x1="145" y1="90" x2="165" y2="110"/><line x1="295" y1="90" x2="260" y2="110"/><line x1="325" y1="90" x2="345" y2="110"/>
+        </g>
+        <text x="520" y="33" style="fill:var(--text)">level 0: 1 node × 8  = 8</text>
+        <text x="520" y="81" style="fill:var(--text)">level 1: 2 nodes × 4 = 8</text>
+        <text x="520" y="129" style="fill:var(--text)">level 2: 4 nodes × 2 = 8</text>
+        <text x="520" y="177" style="fill:var(--text)">level 3: 8 nodes × 1 = 8</text>
+        <text x="520" y="214" style="fill:var(--signal)">4 levels = log₂ 8 + 1,  8 per level</text>
+      </g>
+    </svg>
+    <div class="diagram-cap">Fig 5.2 — Halving at every level: log₂ n + 1 levels. If each level does about n work in total, the cost is about n log n.</div>
+  </div>
+
+  <h3>The three recurrences you will meet most</h3>
+  <p>A <strong>recurrence</strong> writes the cost T(n) in terms of the cost on smaller inputs. Reading it off the tree gives the standard results:</p>
+  <table>
+    <tr><th>Recurrence</th><th>Shape</th><th>Cost</th><th>Example</th></tr>
+    <tr><td>T(n) = T(n − 1) + O(1)</td><td>One call, size shrinks by 1</td><td>O(n)</td><td><code>sum_linear</code>, <code>fact</code></td></tr>
+    <tr><td>T(n) = T(n/2) + O(1)</td><td>One call, size halves</td><td>O(log n)</td><td>Binary search, <code>power</code></td></tr>
+    <tr><td>T(n) = 2T(n/2) + O(n)</td><td>Two half-size calls, linear work to combine</td><td>O(n log n)</td><td>Merge sort (Chapter 6)</td></tr>
+    <tr><td>T(n) = 2T(n/2) + O(1)</td><td>Two half-size calls, constant combine</td><td>O(n)</td><td><code>sum_dc</code></td></tr>
+    <tr><td>T(n) = 2T(n − 1) + O(1)</td><td>Two calls, size shrinks by only 1</td><td>O(2ⁿ)</td><td>Naive Fibonacci, Tower of Hanoi</td></tr>
+  </table>
+  <p>The third row is the one to internalize. For n = 1,024 the tree has 10 levels of splitting (1,024 → 512 → … → 1), and each level does about 1,024 units of combining work in total, so about 10 × 1,024 = 10,240 units, which is n log₂ n. Compare the last row: when each call shrinks the problem by only one but makes <em>two</em> calls, the number of calls doubles at every level for n levels. That is the exponential growth Chapter 1 showed for naive Fibonacci.</p>
+
+  <div class="box what">
+    <span class="box-label">The quick test for a recursive algorithm</span>
+    <p style="margin:0;">Ask two questions. <strong>How much smaller does each call make the problem?</strong> (By a constant amount, like n − 1, or by a constant factor, like n/2?) <strong>How many calls does each call make?</strong> One call shrinking by a factor each time gives log n depth; two calls shrinking by only a constant gives exponential cost; two calls that each halve the problem give n log n or n depending on the combine work. Those two answers decide almost everything. (The general "master theorem" formalizes this; the tree argument above is the intuition behind it.)</p>
+  </div>
+</section>
+
+<section class="sec" id="divide-and-conquer">
+  <span class="sec-eyebrow">Section 5.4</span>
+  <h2 class="sec-title">Divide and conquer</h2>
+
+  <p><strong>Divide and conquer</strong> is a three-step strategy: <em>divide</em> the problem into smaller independent subproblems of the same kind, <em>conquer</em> each recursively (with a direct answer once small enough), and <em>combine</em> the answers. <code>sum_dc</code> was the simplest example. The interesting cases are those where dividing makes the problem genuinely cheaper.</p>
+
+  <h3>Binary search, recursively</h3>
+  <p>Chapter 1's binary search was a loop. Written recursively it matches the strategy exactly: divide (pick the middle), conquer (recurse into only the half that can hold the target), combine (nothing to do, the sub-answer is the answer).</p>
+  <pre><code>// Search a[lo..hi] (inclusive). Returns the index, or -1.
+int bs_rec(const int a[], int lo, int hi, int target) {
+    if (lo &gt; hi) return -1;                               // base case: empty range
+    int mid = lo + (hi - lo) / 2;
+    if (a[mid] == target) return mid;
+    return a[mid] &lt; target ? bs_rec(a, mid + 1, hi, target)
+                           : bs_rec(a, lo, mid - 1, target);
+}</code></pre>
+  <p>On <code>[2, 5, 8, 12, 16, 23, 38, 56, 72, 91]</code> it found 23 at index 5 and returned −1 for 7. This is the T(n) = T(n/2) + O(1) recurrence: O(log n) time. Note the recursive call is again the last action, so the recursion can be flattened into the loop you already know (Section 5.5). For binary search, the loop version is the right choice in firmware: same speed, no stack growth.</p>
+
+  <h3>Tower of Hanoi: recursion that is genuinely exponential</h3>
+  <p>Move n discs from peg A to peg C using peg B, moving one disc at a time and never placing a larger disc on a smaller one. The recursive insight: to move n discs, first move the top n − 1 out of the way (to B), move the largest disc (to C), then move the n − 1 discs on top of it.</p>
+  <pre><code>void hanoi(int n, char from, char to, char via) {
+    if (n == 0) return;                       // base case: nothing to move
+    hanoi(n - 1, from, via, to);              // clear the way
+    printf("%c-&gt;%c ", from, to);              // move the biggest disc
+    hanoi(n - 1, via, to, from);              // restack on top of it
+}</code></pre>
+  <pre><code>n = 3:  A-&gt;C  A-&gt;B  C-&gt;B  A-&gt;C  B-&gt;A  B-&gt;C  A-&gt;C          7 moves</code></pre>
+  <p>The recurrence is T(n) = 2T(n − 1) + 1, which solves to <strong>2<sup>n</sup> − 1</strong> moves: 7 for n = 3, 1,023 for n = 10, and 2<sup>64</sup> − 1 ≈ 1.8 × 10<sup>19</sup> for the legendary 64-disc version, which at one move per second would take about 585 billion years. Unlike merge sort, nothing here can be made faster: the minimum number of moves really is 2<sup>n</sup> − 1. The example is a reminder that "divide and conquer" describes a shape of algorithm, not a guarantee of speed; the recurrence is what tells you the cost. Here the stack depth is only n, so the recursion is cheap in memory while being exponential in time.</p>
+</section>
+
+<section class="sec" id="recursion-to-iteration">
+  <span class="sec-eyebrow">Section 5.5</span>
+  <h2 class="sec-title">From recursion to iteration, and the explicit stack</h2>
+
+  <p>Anything you can write recursively you can write with a loop. Two techniques cover almost every case.</p>
+
+  <h3>Technique 1: tail recursion becomes a loop</h3>
+  <p>When the recursive call is the <em>last</em> thing a function does and its result is returned unchanged (<code>gcd</code>, <code>bs_rec</code>), nothing is waiting in the frame, so the frame is wasted. The call can be replaced by reassigning the parameters and jumping back to the top:</p>
+  <pre><code>unsigned gcd_loop(unsigned a, unsigned b) {
+    while (b) {                       // the base case became the loop condition
+        unsigned t = a % b;
+        a = b;                        // the arguments of the recursive call...
+        b = t;                        // ...became assignments
+    }
+    return a;
+}</code></pre>
+  <p>This returns 6 for (48, 18) and 21 for (1071, 462), matching the recursive version, with constant stack. Some compilers do this conversion automatically for tail calls when optimization is on (GCC often does at <code>-O2</code>), but the C language does not guarantee it, and Python never does it, so do not rely on it. Python also caps recursion depth: CPython's default limit is 1,000 frames (<code>sys.getrecursionlimit()</code>), after which it raises <code>RecursionError</code> rather than crashing. A deep recursion that works in C at -O2 may fail in Python for that reason alone. Note that <code>fact</code> is <em>not</em> tail recursive as written, because the multiplication happens after the call returns.</p>
+
+  <h3>Technique 2: an explicit stack</h3>
+  <p>When the recursion is not a tail call, you can still replace it with a loop by managing the pending work yourself on a stack (Chapter 4). The call stack is hidden; an explicit one is a plain array you size and check. The motivating problem is <strong>flood fill</strong>: starting from one cell of a grid, find every connected cell (up, down, left, right) holding 1, the core of blob detection in images and of region labeling in sensor grids.</p>
+  <pre><code>#define R 5
+#define C 5
+static char g[R][C];                       // 0 = empty, 1 = unvisited filled, 2 = visited
+
+// Recursive version: depth can reach the size of the region.
+void ff_rec(int r, int c) {
+    if (r &lt; 0 || r &gt;= R || c &lt; 0 || c &gt;= C || g[r][c] != 1) return;
+    g[r][c] = 2;                           // mark visited
+    ff_rec(r + 1, c); ff_rec(r - 1, c);
+    ff_rec(r, c + 1); ff_rec(r, c - 1);
+}
+
+// Iterative version: an explicit stack of cell numbers (r * C + c).
+int ff_iter(int r0, int c0) {
+    uint8_t stack[R * C];                  // bound: each cell is pushed at most once
+    int top = 0, count = 0;
+    if (g[r0][c0] != 1) return 0;
+    g[r0][c0] = 2;
+    stack[top++] = (uint8_t)(r0 * C + c0);
+    while (top &gt; 0) {
+        int cell = stack[--top];
+        int r = cell / C, c = cell % C;
+        count++;
+        const int dr[4] = {1, -1, 0, 0}, dc[4] = {0, 0, 1, -1};
+        for (int k = 0; k &lt; 4; k++) {
+            int nr = r + dr[k], nc = c + dc[k];
+            if (nr &gt;= 0 &amp;&amp; nr &lt; R &amp;&amp; nc &gt;= 0 &amp;&amp; nc &lt; C &amp;&amp; g[nr][nc] == 1) {
+                g[nr][nc] = 2;             // mark WHEN PUSHING, so no cell is pushed twice
+                stack[top++] = (uint8_t)(nr * C + nc);
+            }
+        }
+    }
+    return count;
+}</code></pre>
+  <p>On this grid (1 = filled), starting at the top-left cell:</p>
+  <pre><code>1 1 0 0 1
+0 1 0 1 1
+0 1 1 0 0
+1 0 0 0 1
+1 1 0 1 1</code></pre>
+  <p>both versions found the same 5 connected cells: (0,0), (0,1), (1,1), (2,1), (2,2). Starting from the bottom-left cell (4,0), the fill found 3 cells. This is a small example, so the recursion depth was only 5 and the explicit stack never held more than a couple of entries; the point is the <em>guarantee</em>. The key line is marking a cell visited <em>when it is pushed</em>, not when it is popped: that makes every cell enter the stack at most once, so the array of R × C entries can never overflow, and the memory needed is known at compile time (here 25 bytes). The recursive version has no such comfortable bound: for a snake-shaped region its depth equals the region's size, up to 25 frames here and up to the whole image on a real one, each frame far larger than one byte.</p>
+  <p>Both versions are a sketch for a small fixed grid: they ignore diagonal connectivity and assume the grid is a global array, and the cell index must fit the stack's element type (a <code>uint8_t</code> holds at most 256 cells; use <code>uint16_t</code> for larger grids).</p>
+</section>
+
+<section class="sec" id="backtracking">
+  <span class="sec-eyebrow">Section 5.6</span>
+  <h2 class="sec-title">Backtracking: recursion that undoes its choices</h2>
+
+  <p>Some problems ask you to find an arrangement satisfying constraints, where the only method is to try choices and abandon the ones that fail. <strong>Backtracking</strong> is recursion where each call makes one choice, recurses to make the rest, and then <em>undoes</em> the choice to try the next. Its power comes from <strong>pruning</strong>: the moment a partial choice already violates a constraint, you stop exploring everything built on top of it.</p>
+  <p>The standard example is placing n queens on an n × n chessboard so that no two attack each other (no shared row, column or diagonal). Place one queen per row, row by row; for each row try each column, skipping columns that conflict with queens already placed.</p>
+  <pre><code>static int cols[12];                     // cols[r] = column of the queen in row r
+static int solutions;
+
+static int safe(int row, int col) {      // does (row, col) conflict with rows above?
+    for (int r = 0; r &lt; row; r++) {
+        int c = cols[r];
+        if (c == col || abs(c - col) == row - r) return 0;     // same column or diagonal
+    }
+    return 1;
+}
+
+void queens(int row, int n) {
+    if (row == n) { solutions++; return; }        // all rows filled: one solution
+    for (int col = 0; col &lt; n; col++) {
+        if (safe(row, col)) {                     // PRUNE: skip conflicting squares
+            cols[row] = col;                      // make a choice...
+            queens(row + 1, n);                   // ...explore everything that follows...
+        }                                         // ...the "undo" is simply overwriting cols[row] next time
+    }
+}</code></pre>
+  <p>The counts, from running it: for n = 4 there are <strong>2</strong> solutions, for n = 6 there are 4, and for n = 8 there are 92. The function was called 17 times for n = 4, 153 times for n = 6 and 2,057 times for n = 8. Compare that with the 8<sup>8</sup> = 16,777,216 ways of putting one queen in each row without checking, or the 64!/(56!·8!) ≈ 4.4 billion ways of choosing any 8 squares: pruning cuts the search to 2,057 calls. The recursion depth is only n, so the stack is small even though the search is large. This pattern (choose, explore, un-choose, with early rejection) solves puzzles, scheduling and configuration problems, and it is the basis for the depth-first search of Chapter 9. The honest caveat: backtracking is still exponential in the worst case. Pruning makes it practical for small n, not magically fast.</p>
+</section>
+
+<section class="sec" id="recursion-embedded">
+  <span class="sec-eyebrow">Section 5.7</span>
+  <h2 class="sec-title">Recursion on a microcontroller</h2>
+
+  <p>Embedded coding standards (MISRA C among them) often forbid recursion outright. The reasons are the ones this chapter has built up, now stated together:</p>
+  <table>
+    <tr><th>Problem</th><th>Why it bites on a microcontroller</th></tr>
+    <tr><td>Stack usage is data-dependent</td><td>Maximum depth depends on the input. If you cannot prove a bound, you cannot prove the program will not overflow.</td></tr>
+    <tr><td>Overflow is silent</td><td>With no operating system or memory protection, the stack grows into other data (variables, or the heap) and corrupts it without any error message.</td></tr>
+    <tr><td>Tiny stacks</td><td>A stack of a few hundred bytes to a couple of kilobytes is common; every frame holds a return address, saved registers and locals.</td></tr>
+    <tr><td>Hard to analyze</td><td>Static tools can bound stack use easily for call graphs without cycles; recursion creates a cycle they cannot bound without help.</td></tr>
+  </table>
+  <p>If you do use recursion in firmware, treat depth as a budget you can show: depth × frame size must fit in the stack with room to spare for interrupts (an interrupt pushes its own frame on top). Three habits help:</p>
+  <ul>
+    <li><strong>Prove a depth bound</strong> from the problem, such as ⌊log₂ n⌋ + 1 for a halving recursion over at most n = 1,000 items (11 frames), or n for the 8 queens, rather than "it should be fine".</li>
+    <li><strong>Pass a depth counter and refuse to exceed a limit</strong>, returning an error code instead of recursing: a cheap guard that turns a silent crash into a handled failure.</li>
+    <li><strong>Measure the frame</strong> on your actual toolchain (GCC's <code>-fstack-usage</code> reports each function's frame size, as it did for the 48-byte <code>fact</code> on the test machine) and, at run time, fill the stack with a known pattern at startup and check how much of it was overwritten.</li>
+  </ul>
+  <p>Where a recursion has a bounded or tail-recursive shape, convert it (Section 5.5) so the question never arises. Where it is naturally recursive but unbounded, the explicit stack version from flood fill is the safe form: you choose its size, it lives in static memory, and "full" is a condition you can test.</p>
+</section>
+
+<section class="sec" id="worked-problem-dsa5">
+  <span class="sec-eyebrow">Section 5.8</span>
+  <h2 class="sec-title">Worked problem — four recursions, one device</h2>
+
+  <div class="box trace">
+    <span class="box-label">Problem</span>
+    <p>(a) Trace <code>fact(4)</code> and give the maximum number of stack frames alive. (b) Compute 3<sup>13</sup> with <code>power</code>, listing the calls, and count multiplications against a plain loop. (c) How many moves does Tower of Hanoi need for 4 discs, and how long would 4 discs take at one move per second? (d) A firmware routine sums 1,000 readings recursively. Compare <code>sum_linear</code> and <code>sum_dc</code> by stack depth and decide, for a device with a 2,048-byte stack, which (if either) is safe, using an illustrative frame size of 16 bytes. (e) A flood fill runs on a 5 × 5 grid. How large must the explicit stack be, and why?</p>
+    <pre><code>(a) fact(4) → fact(3) → fact(2) → fact(1)   (base case, returns 1)
+        fact(2) = 2 × 1 = 2
+        fact(3) = 3 × 2 = 6
+        fact(4) = 4 × 6 = 24
+    Frames alive at the deepest point: 4 (one per call). Depth n gives
+    O(n) stack space.
+
+(b) power(3, 13), n halves each call: 13 → 6 → 3 → 1 → 0  (5 calls)
+        power(3, 0) = 1                                   (base)
+        power(3, 1): half = 1,  1 × 1 = 1,  × 3 (odd)  = 3      2 mults
+        power(3, 3): half = 3,  3 × 3 = 9,  × 3 (odd)  = 27     2 mults
+        power(3, 6): half = 27, 27 × 27 = 729                   1 mult
+        power(3, 13): half = 729, 729 × 729 = 531,441, × 3 (odd)
+                      = 1,594,323                               2 mults
+    Total: 7 multiplications, against 12 for a plain loop. Check:
+    3^13 = 1,594,323 ✓.
+
+(c) Hanoi moves = 2^n − 1.  n = 4: 2^4 − 1 = 15 moves,
+    15 seconds at one move per second. (Each added disc doubles it,
+    plus one: n = 5 needs 31 moves.)
+
+(d) sum_linear on 1,000 elements: 1,001 frames (1,000 calls plus the
+        base call)  →  1,001 × 16 = 16,016 bytes, about 7.8× the
+        2,048-byte stack: overflows, silently.
+    sum_dc: depth 11  →  11 × 16 = 176 bytes: fits easily.
+    (The 16-byte frame is illustrative; measure your own target.)
+    Even sum_dc's recursion buys nothing here: a simple loop sums
+    the array with no stack growth, so the loop is the right answer
+    in firmware. The comparison shows why depth, not just time,
+    decides whether a recursion is acceptable.
+
+(e) Mark-on-push means each of the 25 cells enters the stack at most
+    once, so a stack of 25 entries can never overflow. With one byte
+    per entry (cell numbers 0..24 fit in uint8_t) that is 25 bytes,
+    fixed at compile time. The recursive version's depth could reach
+    25 frames on a snake-shaped region, each frame many bytes.</code></pre>
+    <p><strong>What to take away:</strong> parts (a) and (b) are the mechanical skill, reading a recursion as calls going down and answers coming back up, and counting the work from the shape of the calls. Part (c) is the reminder that a recursive shape does not make an algorithm fast: the recurrence does. Parts (d) and (e) are the embedded judgment: bound the depth, or replace the call stack with a stack you size yourself.</p>
+  </div>
+</section>
+
+<section class="sec" id="recap-dsa5">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>A recursive function needs a base case, a recursive case on a smaller input, and guaranteed progress toward the base case. Each active call holds a stack frame, so a recursion of depth d uses O(d) stack space; on the test machine <code>fact</code> used a 48-byte frame at -O0, a number that varies by compiler, optimization level and CPU.</li>
+    <li>Think recursively by assuming the function works on smaller inputs and only checking the one-step relationship. Euclid's GCD shrinks fast (gcd(1071, 462) takes 4 calls); exponentiation by squaring halves the exponent (x<sup>1000</sup> in 16 multiplications instead of 999); correct structure can still give wrong arithmetic (<code>fact(13)</code> wraps to 1,932,053,504 in 32 bits).</li>
+    <li>Read cost from the recursion tree: levels × work per level. T(n) = T(n−1) + O(1) is O(n); T(n) = T(n/2) + O(1) is O(log n); T(n) = 2T(n/2) + O(n) is O(n log n); T(n) = 2T(n−1) + O(1) is O(2ⁿ). Ask how much smaller each call makes the problem and how many calls it makes.</li>
+    <li>Divide and conquer divides, conquers recursively, and combines. Splitting in half gives depth log n (<code>sum_dc</code> reached 11 frames against 1,001 for <code>sum_linear</code> on the same 1,000 elements), but it is a shape, not a guarantee of speed: Tower of Hanoi needs 2<sup>n</sup> − 1 moves no matter how it is written.</li>
+    <li>Tail recursion (the call is the last action) converts to a loop by reassigning parameters, as in <code>gcd_loop</code>; compilers may do this but C does not guarantee it and Python never does (CPython's default limit is 1,000 frames). Non-tail recursion converts with an explicit stack of pending work.</li>
+    <li>Flood fill shows the explicit stack: mark cells when they are pushed so each enters at most once, giving a compile-time bound (25 entries for a 5 × 5 grid) instead of data-dependent recursion depth. Backtracking is recursion that chooses, explores and undoes, with pruning (8 queens: 92 solutions in 2,057 calls instead of billions of arrangements).</li>
+    <li>Firmware standards often forbid recursion because depth is data-dependent, overflow is silent and stacks are tiny. If you use it, prove a depth bound, add a depth-limit guard, measure frame sizes (<code>-fstack-usage</code>), and prefer loops or an explicit, statically sized stack.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-dsa5">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>Name the three parts every correct recursive function needs. Then explain what goes wrong with <code>fact(13)</code> computed in 32-bit unsigned arithmetic, even though the recursion is structurally correct.</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">The parts are a base case (an input answered directly, without a further call), a recursive case (the answer expressed through the same function on a smaller input), and progress (every call moves strictly closer to the base case). Without a base case or without progress the recursion never ends and overflows the stack. <code>fact(13)</code> is 6,227,020,800, which exceeds the largest 32-bit unsigned value (4,294,967,295), so the result wraps around modulo 2<sup>32</sup> to 1,932,053,504 with no error. <code>fact(12) = 479,001,600</code> still fits. Correct recursion structure does not protect you from integer overflow.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>For <code>power(2, 10)</code> using exponentiation by squaring, list the exponents of the calls, count the calls, and compare the number of multiplications with the plain loop. How does depth grow with n?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">The exponents are 10, 5, 2, 1, 0 (halving, rounded down): 5 calls. Multiplications: exponent 10 is even (1 multiplication, half squared); 5 is odd (2: square, then times x); 2 is even (1); 1 is odd (2); 0 is the base case (0), for a total of 6, against 9 for multiplying out 2 × 2 × … ten times. Since the exponent halves every call, the depth is about ⌊log₂ n⌋ + 2, so O(log n) time and O(log n) stack. For n = 1,000 the same method used 11 calls and 16 multiplications.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>For T(n) = 2T(n/2) + n with n = 1,024, how many levels does the recursion tree have, how much work does each level do, and what is the total? Why does T(n) = 2T(n − 1) + 1 behave so differently?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Halving 1,024 down to 1 takes 10 splitting steps (2<sup>10</sup> = 1,024), so the tree has 10 levels of splitting (11 counting the leaves). At each level the sizes of the subproblems add up to n = 1,024, so each level does about 1,024 units of combining work, giving about 10 × 1,024 = 10,240, which is n log₂ n. In T(n) = 2T(n − 1) + 1 each call shrinks the problem by only one but spawns two calls, so the number of calls doubles at each of n levels and the total is 2<sup>n</sup> − 1. Halving the problem is what keeps the first recurrence manageable; shrinking by a constant while branching is exponential.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 4</span>
+    <p>How many moves does Tower of Hanoi need for 5 discs and for 20 discs? Is the exponential cost caused by a poor implementation, and what is the recursion depth?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">The number of moves is 2<sup>n</sup> − 1: 31 for 5 discs and 2<sup>20</sup> − 1 = 1,048,575 for 20 discs. The cost is not an implementation flaw: 2<sup>n</sup> − 1 is the true minimum number of moves for any correct solution, so no cleverness can reduce it. The recursion depth is only n (each call handles one fewer disc), so stack use is small, O(n), even though the running time is exponential. This shows that time and stack depth are independent questions and both need their own analysis.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 5</span>
+    <p>In the iterative flood fill, why is a cell marked visited when it is <em>pushed</em> rather than when it is <em>popped</em>, and what does that guarantee for a 5 × 5 grid?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">If cells were marked only when popped, a cell reachable from several neighbors could be pushed several times before its first pop, so the number of entries is not bounded by the number of cells and the fixed-size stack could overflow (and cells would be processed repeatedly). Marking at push time makes every cell enter the stack at most once: a cell can only be pushed while it still reads 1, and pushing changes it to 2. For a 5 × 5 grid that means at most 25 entries ever exist, so a 25-element stack (25 bytes, using <code>uint8_t</code> cell numbers) can never overflow. That compile-time bound is exactly what the recursive version, whose depth depends on the shape of the region, cannot offer.</div>
+  </div>
+
+</section>
+
+<div class="chapter-nav">
+  <a href="dsa-04-stacks-queues.html"><span class="lbl">Previous</span>4. Stacks &amp; Queues</a>
+  <a class="next-wrap" href="dsa-06-sorting-searching.html"><span class="lbl">Next chapter</span>6. Sorting &amp; Searching</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

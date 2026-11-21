@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signals & Systems Ch.5 — The Fourier Transform — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">Signals &amp; Systems / Ch. 5: The Fourier Transform</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// Signals &amp; Systems — Chapter 5 of 7</span>
+  <h1>The Fourier Transform</h1>
+  <p>The Fourier series handled periodic signals. Real signals are often not periodic: a single button press, a decaying vibration after an impact, a one-off radar pulse. This chapter removes the periodicity requirement by letting the period grow without limit, and the discrete line spectrum melts into a continuous one. You will learn the transform and its key pairs, the properties that make it useful — above all, that convolution in time becomes multiplication in frequency — and then apply it to filtering, the time-bandwidth trade-off, radio modulation, and the FFT running on a microcontroller.</p>
+  <div class="meta"><span>Chapter 5 of 7</span><span>Builds on: Ch. 3 (convolution), Ch. 4 (Fourier series)</span><span>Leads into: sampling and Nyquist (Ch. 6)</span></div>
+</section>
+
+<section class="sec" id="ft-from-series">
+  <span class="sec-eyebrow">Section 5.1</span>
+  <h2 class="sec-title">From the series to the transform</h2>
+
+  <p>Start from a signal x(t) that is zero outside a finite interval, and imagine repeating it every T₀ seconds to make a periodic signal. Chapter 4 gives its coefficients:</p>
+  <pre><code>c_k = (1/T₀) ∫ x(t) e^{−jkω₀t} dt      (integral over one period, which contains all of x)
+    = (1/T₀) · X(jkω₀)      where we define   X(jω) = ∫ x(t) e^{−jωt} dt  (over all t)</code></pre>
+  <p>So the Fourier-series coefficients are just samples of the function X(jω), taken at ω = kω₀ and divided by T₀. Rebuild the signal from them, using 1/T₀ = ω₀/2π:</p>
+  <pre><code>x̃(t) = Σ c_k e^{jkω₀t} = (1/2π) Σ X(jkω₀) e^{jkω₀t} · ω₀</code></pre>
+  <p>Now let T₀ → ∞. The repeats move infinitely far away, leaving only the original x(t). The spacing ω₀ shrinks to an infinitesimal dω, the harmonics kω₀ become a continuous variable ω, and the sum becomes an integral. The result is the <strong>Fourier transform pair</strong>:</p>
+  <pre><code>X(jω) = ∫ x(t) e^{−jωt} dt              (analysis:  time → frequency)
+x(t)  = (1/2π) ∫ X(jω) e^{jωt} dω        (synthesis: frequency → time)</code></pre>
+  <p>Read the second line as a continuous version of the Fourier series: x(t) is a "sum" of complex exponentials at every frequency, weighted by X(jω)dω/2π. X(jω) is called the <strong>spectrum</strong> of x(t); |X(jω)| tells you how much of each frequency is present and ∠X(jω) tells you its phase.</p>
+
+  <div class="box what">
+    <span class="box-label">Two connections you already have</span>
+    <p style="margin:0;">(1) The impulse response's transform is the frequency response: H(jω) = ∫h(t)e<sup>−jωt</sup>dt is exactly the H(jω) derived in Section 4.1. (2) The Laplace transform of Control Systems is the same integral with s in place of jω. For a stable system, whose Laplace region of convergence includes the imaginary axis, the Fourier transform is X(s) evaluated at s = jω: the transfer function G(s) restricted to the imaginary axis <em>is</em> the frequency response.</p>
+  </div>
+
+  <div class="box why">
+    <span class="box-label">When does the transform exist?</span>
+    <p style="margin:0;">Sufficient conditions: x(t) is absolutely integrable (∫|x|dt &lt; ∞) with a finite number of jumps and extrema — the same Dirichlet conditions as Chapter 4. Energy signals from Chapter 1 satisfy this. Power signals such as constants and sinusoids are not absolutely integrable, yet they do have transforms, but ones that involve impulses in frequency (Section 5.2).</p>
+  </div>
+
+  <div class="box pitfall">
+    <span class="box-label">Two conventions — check which one a book or library uses</span>
+    <p style="margin:0;">This course writes the transform in angular frequency ω (rad/s), which puts the 1/2π in the inverse. Other texts use frequency f in Hz, where the pair is symmetric and has no 2π in front: X(f) = ∫x(t)e<sup>−j2πft</sup>dt. Both are correct; mixing them up is a common source of "off by 2π" errors. Also, some software puts the sign convention or a 1/N scale factor in different places.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="ft-pairs">
+  <span class="sec-eyebrow">Section 5.2</span>
+  <h2 class="sec-title">Transform pairs worth knowing</h2>
+
+  <p>A handful of transform pairs cover most of what you will meet. Each of the first three derivations below is short enough to do by hand.</p>
+
+  <h3>Derivations</h3>
+  <pre><code>Decaying exponential, x(t) = e^{−at} u(t), a &gt; 0:
+  X(jω) = ∫ e^{−at} e^{−jωt} dt   (0 to ∞)  =  ∫ e^{−(a + jω)t} dt  =  1/(a + jω)
+  Magnitude 1/√(a² + ω²), phase −arctan(ω/a).
+
+Rectangular pulse, x(t) = 1 for |t| &lt; T/2, else 0:
+  X(jω) = ∫ e^{−jωt} dt   (−T/2 to T/2)  =  2 sin(ωT/2) / ω  =  T · sinc(ωT/2)
+  where sinc(x) = sin(x)/x  (so sinc(0) = 1).
+
+Impulse, x(t) = δ(t):
+  X(jω) = ∫ δ(t) e^{−jωt} dt = 1     (sifting property)
+  An impulse contains every frequency equally.</code></pre>
+
+  <h3>Table of pairs</h3>
+  <table>
+    <tr><th>x(t)</th><th>X(jω)</th><th>Note</th></tr>
+    <tr><td>δ(t)</td><td>1</td><td>flat spectrum</td></tr>
+    <tr><td>1 (constant)</td><td>2π δ(ω)</td><td>all energy at ω = 0</td></tr>
+    <tr><td>u(t)</td><td>π δ(ω) + 1/(jω)</td><td>DC part plus a 1/ω decay</td></tr>
+    <tr><td>e<sup>−at</sup> u(t), a &gt; 0</td><td>1/(a + jω)</td><td>one-sided decay (RC circuit)</td></tr>
+    <tr><td>e<sup>−a|t|</sup>, a &gt; 0</td><td>2a/(a² + ω²)</td><td>two-sided, real and even</td></tr>
+    <tr><td>Rectangle, |t| &lt; T/2</td><td>2 sin(ωT/2)/ω</td><td>sinc shape</td></tr>
+    <tr><td>sin(Wt)/(πt)</td><td>1 for |ω| &lt; W, else 0</td><td>ideal low-pass filter</td></tr>
+    <tr><td>e<sup>jω₀t</sup></td><td>2π δ(ω − ω₀)</td><td>a single spectral line</td></tr>
+    <tr><td>cos(ω₀t)</td><td>π[δ(ω − ω₀) + δ(ω + ω₀)]</td><td>two lines, at ±ω₀</td></tr>
+    <tr><td>sin(ω₀t)</td><td>(π/j)[δ(ω − ω₀) − δ(ω + ω₀)]</td><td>two lines, imaginary</td></tr>
+    <tr><td>Periodic, coefficients c<sub>k</sub></td><td>2π Σ c<sub>k</sub> δ(ω − kω₀)</td><td>the Fourier series as impulses</td></tr>
+  </table>
+
+  <div class="box trace">
+    <span class="box-label">The Fourier series is a special case</span>
+    <p style="margin:0;">The last row ties the two chapters together: a periodic signal has a transform that is an impulse train, with an impulse of strength 2πc<sub>k</sub> at each harmonic. The line spectrum of Chapter 4 is what a continuous spectrum looks like for a signal that never ends. Conversely, the envelope of the line spectrum of the 50% pulse train in Section 4.7 was exactly this section's sinc: for a pulse of width T = T₀/2, T₀·c<sub>k</sub> = X(jkω₀) = 2 sin(kπ/2)/(kω₀) reproduces that result.</p>
+  </div>
+
+  <div class="box pitfall">
+    <span class="box-label">A sinc is not a "small signal"</span>
+    <p style="margin:0;">sinc(x) = sin(x)/x decays only as 1/x, and it is not absolutely integrable. That is a direct consequence of the rectangle's sharp edges (Section 4.4: jump discontinuities give slow decay). Also beware the two definitions of sinc in the literature: this course uses the unnormalized sin(x)/x; MATLAB's <code>sinc</code> and many books use sin(πx)/(πx).</p>
+  </div>
+
+</section>
+
+<section class="sec" id="ft-properties">
+  <span class="sec-eyebrow">Section 5.3</span>
+  <h2 class="sec-title">Properties: convolution becomes multiplication</h2>
+
+  <p>Denote x(t) ↔ X(jω). Each property below is proven with a line or two of substitution in the defining integral; what matters is how you use them.</p>
+  <table>
+    <tr><th>Property</th><th>Time domain</th><th>Frequency domain</th></tr>
+    <tr><td>Linearity</td><td>a·x + b·y</td><td>a·X + b·Y</td></tr>
+    <tr><td>Time shift</td><td>x(t − t₀)</td><td>e<sup>−jωt₀</sup> X(jω) — same magnitude, phase −ωt₀</td></tr>
+    <tr><td>Frequency shift (modulation)</td><td>e<sup>jω₀t</sup> x(t)</td><td>X(j(ω − ω₀))</td></tr>
+    <tr><td>Time scaling</td><td>x(at)</td><td>(1/|a|) X(jω/a)</td></tr>
+    <tr><td>Differentiation</td><td>dx/dt</td><td>jω X(jω)</td></tr>
+    <tr><td>Integration</td><td>∫ x dτ (up to t)</td><td>X(jω)/(jω) + π X(0) δ(ω)</td></tr>
+    <tr><td>Conjugate symmetry (real x)</td><td>x(t) real</td><td>X(−jω) = conj(X(jω)): |X| even, ∠X odd</td></tr>
+    <tr><td><strong>Convolution</strong></td><td>(x * h)(t)</td><td><strong>X(jω) · H(jω)</strong></td></tr>
+    <tr><td>Multiplication</td><td>x(t) · m(t)</td><td>(1/2π) (X * M)(jω)</td></tr>
+    <tr><td>Parseval (energy)</td><td>∫ |x(t)|² dt</td><td>(1/2π) ∫ |X(jω)|² dω</td></tr>
+  </table>
+
+  <h3>The convolution property — why this whole chapter exists</h3>
+  <pre><code>Y(jω) = ∫ [ ∫ x(τ) h(t − τ) dτ ] e^{−jωt} dt
+      = ∫ x(τ) [ ∫ h(t − τ) e^{−jωt} dt ] dτ
+      = ∫ x(τ) · e^{−jωτ} H(jω) dτ         (time-shift property on h)
+      = H(jω) · X(jω)</code></pre>
+  <p>The sliding-integral of Chapter 3 becomes a plain product. To find the output of an LTI system you can transform the input, multiply by H(jω), and transform back. This is the same trade the Laplace transform made in Control Systems Ch. 2, now with a direct physical reading: H(jω) is the system's gain and phase at each frequency.</p>
+
+  <div class="box trace">
+    <span class="box-label">Check it on the simplest case</span>
+    <p>Feed the RC circuit's own impulse response into itself: x(t) = h(t) = e<sup>−t</sup>u(t). In time, x * h = ∫<sub>0</sub><sup>t</sup> e<sup>−τ</sup>e<sup>−(t−τ)</sup>dτ = t·e<sup>−t</sup> (for t ≥ 0). In frequency, Y(jω) = 1/(1 + jω)². The transform of t·e<sup>−t</sup>u(t) is indeed 1/(1 + jω)², obtained by differentiating X(jω) = 1/(1 + jω) with respect to ω. Same answer both ways; the frequency route was a multiplication.</p>
+  </div>
+
+  <div class="box trace">
+    <span class="box-label">Parseval on an energy signal</span>
+    <p style="margin:0;">For x(t) = e<sup>−t</sup>u(t): time domain gives E = ∫e<sup>−2t</sup>dt = 1/2 (Chapter 1). Frequency domain: |X(jω)|² = 1/(1 + ω²), and (1/2π)∫dω/(1 + ω²) = (1/2π)·π = 1/2. ✓ The function |X(jω)|² is called the <em>energy spectral density</em>: it shows how the signal's energy is distributed across frequency.</p>
+  </div>
+
+  <div class="box why">
+    <span class="box-label">Differentiation revisited</span>
+    <p style="margin:0;">Multiplying by jω is the frequency response of an ideal differentiator, and its magnitude ω grows without bound. That is the precise sense in which a differentiator amplifies high-frequency noise (Control Systems Ch. 6, the D term), and why H(0) = 0 makes the differentiator non-invertible: it destroys the DC component, exactly as Chapter 2's invertibility table said.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="ft-filtering">
+  <span class="sec-eyebrow">Section 5.4</span>
+  <h2 class="sec-title">Filtering and frequency response</h2>
+
+  <p>With Y(jω) = X(jω)H(jω), an LTI system is a frequency-by-frequency <em>weighting</em>. Design a system so that |H| is large where you want to keep signal content and small where you want to remove it, and you have a filter.</p>
+
+  <h3>The RC low-pass, in full</h3>
+  <p>For h(t) = (1/RC)e<sup>−t/RC</sup>u(t), the transform is H(jω) = 1/(1 + jωRC). Then:</p>
+  <pre><code>|H(jω)| = 1 / √(1 + (ωRC)²)         ∠H(jω) = −arctan(ωRC)
+
+At ω = 0:        |H| = 1        (DC passes untouched)
+At ω = 1/RC:     |H| = 1/√2 ≈ 0.707   → this is the "cutoff" frequency ω_c = 1/RC
+                 (half power; −3 dB), phase −45°
+For ω ≫ 1/RC:    |H| ≈ 1/(ωRC)  → falls at 20 dB per decade (one factor of 10 in gain per decade)</code></pre>
+
+  <div class="diagram">
+    <svg viewBox="0 0 520 190" xmlns="http://www.w3.org/2000/svg">
+      <line x1="40" y1="136.1" x2="480" y2="136.1" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="40.0" y1="25" x2="40.0" y2="145" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M40.0,47.2 L42.2,47.3 L44.4,47.7 L46.6,48.2 L48.8,48.9 L51.0,49.9 L53.2,51.0 L55.4,52.2 L57.6,53.6 L59.8,55.1 L62.0,56.6 L64.2,58.2 L66.4,59.9 L68.6,61.6 L70.8,63.3 L73.0,65.0 L75.2,66.7 L77.4,68.4 L79.6,70.0 L81.8,71.7 L84.0,73.3 L86.2,74.8 L88.4,76.3 L90.6,77.8 L92.8,79.2 L95.0,80.6 L97.2,81.9 L99.4,83.2 L101.6,84.4 L103.8,85.6 L106.0,86.8 L108.2,87.9 L110.4,89.0 L112.6,90.0 L114.8,91.0 L117.0,92.0 L119.2,92.9 L121.4,93.8 L123.6,94.7 L125.8,95.5 L128.0,96.4 L130.2,97.1 L132.4,97.9 L134.6,98.6 L136.8,99.3 L139.0,100.0 L141.2,100.7 L143.4,101.3 L145.6,101.9 L147.8,102.5 L150.0,103.1 L152.2,103.7 L154.4,104.2 L156.6,104.7 L158.8,105.2 L161.0,105.7 L163.2,106.2 L165.4,106.7 L167.6,107.1 L169.8,107.6 L172.0,108.0 L174.2,108.4 L176.4,108.8 L178.6,109.2 L180.8,109.6 L183.0,110.0 L185.2,110.3 L187.4,110.7 L189.6,111.0 L191.8,111.4 L194.0,111.7 L196.2,112.0 L198.4,112.3 L200.6,112.6 L202.8,112.9 L205.0,113.2 L207.2,113.5 L209.4,113.8 L211.6,114.0 L213.8,114.3 L216.0,114.6 L218.2,114.8 L220.4,115.0 L222.6,115.3 L224.8,115.5 L227.0,115.8 L229.2,116.0 L231.4,116.2 L233.6,116.4 L235.8,116.6 L238.0,116.8 L240.2,117.0 L242.4,117.2 L244.6,117.4 L246.8,117.6 L249.0,117.8 L251.2,118.0 L253.4,118.2 L255.6,118.3 L257.8,118.5 L260.0,118.7 L262.2,118.8 L264.4,119.0 L266.6,119.2 L268.8,119.3 L271.0,119.5 L273.2,119.6 L275.4,119.8 L277.6,119.9 L279.8,120.1 L282.0,120.2 L284.2,120.3 L286.4,120.5 L288.6,120.6 L290.8,120.8 L293.0,120.9 L295.2,121.0 L297.4,121.1 L299.6,121.3 L301.8,121.4 L304.0,121.5 L306.2,121.6 L308.4,121.7 L310.6,121.8 L312.8,122.0 L315.0,122.1 L317.2,122.2 L319.4,122.3 L321.6,122.4 L323.8,122.5 L326.0,122.6 L328.2,122.7 L330.4,122.8 L332.6,122.9 L334.8,123.0 L337.0,123.1 L339.2,123.2 L341.4,123.3 L343.6,123.4 L345.8,123.5 L348.0,123.5 L350.2,123.6 L352.4,123.7 L354.6,123.8 L356.8,123.9 L359.0,124.0 L361.2,124.0 L363.4,124.1 L365.6,124.2 L367.8,124.3 L370.0,124.4 L372.2,124.4 L374.4,124.5 L376.6,124.6 L378.8,124.7 L381.0,124.7 L383.2,124.8 L385.4,124.9 L387.6,124.9 L389.8,125.0 L392.0,125.1 L394.2,125.2 L396.4,125.2 L398.6,125.3 L400.8,125.4 L403.0,125.4 L405.2,125.5 L407.4,125.5 L409.6,125.6 L411.8,125.7 L414.0,125.7 L416.2,125.8 L418.4,125.8 L420.6,125.9 L422.8,126.0 L425.0,126.0 L427.2,126.1 L429.4,126.1 L431.6,126.2 L433.8,126.2 L436.0,126.3 L438.2,126.3 L440.4,126.4 L442.6,126.5 L444.8,126.5 L447.0,126.6 L449.2,126.6 L451.4,126.7 L453.6,126.7 L455.8,126.8 L458.0,126.8 L460.2,126.9 L462.4,126.9 L464.6,126.9 L466.8,127.0 L469.0,127.0 L471.2,127.1 L473.4,127.1 L475.6,127.2 L477.8,127.2 L480.0,127.3" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="40.0" y="158" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="84.0" y="158" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">1</text>
+      <text x="128.0" y="158" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">2</text>
+      <text x="216.0" y="158" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">4</text>
+      <text x="304.0" y="158" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">6</text>
+      <text x="392.0" y="158" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">8</text>
+      <text x="480.0" y="158" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">10</text>
+      <text x="260.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">|H(jω)| for the RC low-pass (RC = 1 s)</text>
+      <circle cx="84.0" cy="73.3" r="3.5" fill="var(--signal)"/>
+      <text x="122.0" y="67.25777777777779" text-anchor="middle" font-family="Space Mono" font-size="9" fill="var(--text)">0.707 at ω = 1/RC</text>
+    </svg>
+    <div class="diagram-cap">Gain versus frequency: flat near DC, −3 dB at the cutoff, then a steady roll-off. Low frequencies pass; high frequencies are attenuated.</div>
+  </div>
+
+  <h3>Ideal filters cannot be built</h3>
+  <p>An ideal low-pass filter passes everything below a cutoff W and blocks everything above: H(jω) = 1 for |ω| &lt; W, 0 otherwise. Its impulse response comes from the pair table: h(t) = sin(Wt)/(πt). But this h(t) is non-zero for t &lt; 0. From Chapter 3, a causal system needs h(t) = 0 for t &lt; 0, so an ideal brick-wall filter is <strong>non-causal</strong>; it would need to respond before the input arrives. Real filters (RC, Butterworth, and so on) are causal approximations with gradual transitions, and there is a real trade-off: the sharper the roll-off, the more delay and ringing you accept — the Gibbs behavior of Chapter 4 showing up again.</p>
+
+  <h3>Undoing a system: deconvolution</h3>
+  <p>If Y = XH, then X = Y/H — provided H has no zeros. Where H(jω) = 0 (or is tiny), that frequency is wiped out (or drowned by noise on the way back), and it cannot be recovered. This is Chapter 2's invertibility condition seen in frequency: a system is invertible only if its frequency response never vanishes. In practice, "sharpening" a blurred signal by dividing by H amplifies noise wherever |H| is small, which is why inverse filtering is done carefully.</p>
+
+  <div class="box what">
+    <span class="box-label">What "bandwidth" means</span>
+    <p style="margin:0;">The bandwidth of a system is the range of frequencies it passes; for the RC low-pass it is 0 to 1/RC rad/s (the −3 dB point). The bandwidth of a signal is the range over which most of its spectrum lives. To pass a signal through a system without distorting it, the system's bandwidth must exceed the signal's. A 100 Hz-bandwidth sensor cannot faithfully report a 1 kHz vibration, and a 5 kHz audio channel cannot carry music with content up to 20 kHz.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="ft-time-bandwidth">
+  <span class="sec-eyebrow">Section 5.5</span>
+  <h2 class="sec-title">The time-bandwidth trade-off and modulation</h2>
+
+  <h3>Narrow in time means wide in frequency</h3>
+  <p>The scaling property x(at) ↔ (1/|a|)X(jω/a) says that squeezing a signal in time by a factor a stretches its spectrum by the same factor. The rectangular pulse shows it exactly: a pulse of width T has X(jω) = 2 sin(ωT/2)/ω, with its first zero at ω = 2π/T. Halve the width and the first zero moves out to twice the frequency.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 540 180" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="116.0" x2="230" y2="116.0" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="125.0" y1="25" x2="125.0" y2="130" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M20.0,116.0 L98.8,116.0 L98.8,46.0 L151.2,46.0 L151.2,116.0 L230.0,116.0" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="20.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-2</text>
+      <text x="72.5" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-1</text>
+      <text x="125.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="177.5" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">1</text>
+      <text x="230.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">2</text>
+      <text x="125.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)"></text>
+      <line x1="20" y1="116.0" x2="230" y2="116.0" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="125.0" y1="25" x2="125.0" y2="130" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M20.0,116.0 L111.9,116.0 L111.9,46.0 L138.1,46.0 L138.1,116.0 L230.0,116.0" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="20.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-2</text>
+      <text x="72.5" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-1</text>
+      <text x="125.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="177.5" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">1</text>
+      <text x="230.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">2</text>
+      <text x="125.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">time: pulses of width 1 and 0.5</text>
+      <line x1="290" y1="108.3" x2="520" y2="108.3" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="405.0" y1="25" x2="405.0" y2="130" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M290.0,105.1 L291.9,104.3 L293.8,103.6 L295.8,103.2 L297.7,103.2 L299.6,103.4 L301.5,104.0 L303.4,104.8 L305.3,105.9 L307.2,107.2 L309.2,108.7 L311.1,110.1 L313.0,111.5 L314.9,112.8 L316.8,113.8 L318.8,114.5 L320.7,114.9 L322.6,114.8 L324.5,114.3 L326.4,113.5 L328.3,112.2 L330.2,110.6 L332.2,108.8 L334.1,106.9 L336.0,105.0 L337.9,103.1 L339.8,101.5 L341.8,100.2 L343.7,99.3 L345.6,99.0 L347.5,99.2 L349.4,100.1 L351.3,101.5 L353.2,103.4 L355.2,105.9 L357.1,108.7 L359.0,111.6 L360.9,114.7 L362.8,117.6 L364.8,120.1 L366.7,122.2 L368.6,123.5 L370.5,124.0 L372.4,123.5 L374.3,122.0 L376.2,119.3 L378.2,115.5 L380.1,110.7 L382.0,104.9 L383.9,98.2 L385.8,90.9 L387.8,83.2 L389.7,75.4 L391.6,67.6 L393.5,60.1 L395.4,53.3 L397.3,47.3 L399.2,42.5 L401.2,38.8 L403.1,36.6 L405.0,35.9 L406.9,36.6 L408.8,38.8 L410.8,42.5 L412.7,47.3 L414.6,53.3 L416.5,60.1 L418.4,67.6 L420.3,75.4 L422.2,83.2 L424.2,90.9 L426.1,98.2 L428.0,104.9 L429.9,110.7 L431.8,115.5 L433.8,119.3 L435.7,122.0 L437.6,123.5 L439.5,124.0 L441.4,123.5 L443.3,122.2 L445.2,120.1 L447.2,117.6 L449.1,114.7 L451.0,111.6 L452.9,108.7 L454.8,105.9 L456.8,103.4 L458.7,101.5 L460.6,100.1 L462.5,99.2 L464.4,99.0 L466.3,99.3 L468.2,100.2 L470.2,101.5 L472.1,103.1 L474.0,105.0 L475.9,106.9 L477.8,108.8 L479.8,110.6 L481.7,112.2 L483.6,113.5 L485.5,114.3 L487.4,114.8 L489.3,114.9 L491.2,114.5 L493.2,113.8 L495.1,112.8 L497.0,111.5 L498.9,110.1 L500.8,108.7 L502.8,107.2 L504.7,105.9 L506.6,104.8 L508.5,104.0 L510.4,103.4 L512.3,103.2 L514.2,103.2 L516.2,103.6 L518.1,104.3 L520.0,105.1" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="290.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-30</text>
+      <text x="347.5" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-15</text>
+      <text x="405.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="462.5" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">15</text>
+      <text x="520.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">30</text>
+      <text x="405.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)"></text>
+      <line x1="290" y1="108.3" x2="520" y2="108.3" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="405.0" y1="25" x2="405.0" y2="130" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M290.0,103.7 L291.9,103.9 L293.8,104.2 L295.8,104.5 L297.7,104.9 L299.6,105.3 L301.5,105.9 L303.4,106.4 L305.3,107.1 L307.2,107.8 L309.2,108.5 L311.1,109.2 L313.0,110.0 L314.9,110.7 L316.8,111.5 L318.8,112.2 L320.7,112.9 L322.6,113.6 L324.5,114.2 L326.4,114.7 L328.3,115.2 L330.2,115.6 L332.2,115.9 L334.1,116.1 L336.0,116.1 L337.9,116.1 L339.8,115.9 L341.8,115.6 L343.7,115.1 L345.6,114.5 L347.5,113.8 L349.4,112.9 L351.3,111.9 L353.2,110.8 L355.2,109.5 L357.1,108.1 L359.0,106.6 L360.9,105.0 L362.8,103.3 L364.8,101.5 L366.7,99.6 L368.6,97.7 L370.5,95.8 L372.4,93.8 L374.3,91.8 L376.2,89.9 L378.2,87.9 L380.1,86.0 L382.0,84.2 L383.9,82.4 L385.8,80.8 L387.8,79.2 L389.7,77.8 L391.6,76.5 L393.5,75.4 L395.4,74.4 L397.3,73.6 L399.2,72.9 L401.2,72.4 L403.1,72.2 L405.0,72.1 L406.9,72.2 L408.8,72.4 L410.8,72.9 L412.7,73.6 L414.6,74.4 L416.5,75.4 L418.4,76.5 L420.3,77.8 L422.2,79.2 L424.2,80.8 L426.1,82.4 L428.0,84.2 L429.9,86.0 L431.8,87.9 L433.8,89.9 L435.7,91.8 L437.6,93.8 L439.5,95.8 L441.4,97.7 L443.3,99.6 L445.2,101.5 L447.2,103.3 L449.1,105.0 L451.0,106.6 L452.9,108.1 L454.8,109.5 L456.8,110.8 L458.7,111.9 L460.6,112.9 L462.5,113.8 L464.4,114.5 L466.3,115.1 L468.2,115.6 L470.2,115.9 L472.1,116.1 L474.0,116.1 L475.9,116.1 L477.8,115.9 L479.8,115.6 L481.7,115.2 L483.6,114.7 L485.5,114.2 L487.4,113.6 L489.3,112.9 L491.2,112.2 L493.2,111.5 L495.1,110.7 L497.0,110.0 L498.9,109.2 L500.8,108.5 L502.8,107.8 L504.7,107.1 L506.6,106.4 L508.5,105.9 L510.4,105.3 L512.3,104.9 L514.2,104.5 L516.2,104.2 L518.1,103.9 L520.0,103.7" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="290.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-30</text>
+      <text x="347.5" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-15</text>
+      <text x="405.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="462.5" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">15</text>
+      <text x="520.0" y="143" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">30</text>
+      <text x="405.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">frequency: X(jω) for each</text>
+    </svg>
+    <div class="diagram-cap">Blue: width 1. Amber: width 0.5. The narrower pulse has half the peak but twice the spectral width — you cannot make a signal short in time and narrow in frequency at once.</div>
+  </div>
+
+  <p>This is the <strong>time-bandwidth trade-off</strong>, and it has practical consequences: a short pulse (radar, ultrasonic ranging, a fast digital edge) inevitably occupies a wide band; a narrow-band signal (a clean sinusoid) must last a long time. Chapter 4's observation that sharp edges radiate at many harmonics is the same fact from the periodic side.</p>
+
+  <h3>Modulation: moving a spectrum to where you need it</h3>
+  <p>Multiplying a signal by a cosine shifts its spectrum. From the frequency-shift property:</p>
+  <pre><code>y(t) = x(t) cos(ω_c t)   ↔   Y(jω) = ½ X(j(ω − ω_c)) + ½ X(j(ω + ω_c))</code></pre>
+  <p>The message spectrum is copied to +ω<sub>c</sub> and −ω<sub>c</sub>, each at half height. This is <strong>amplitude modulation</strong>: it is how a low-frequency signal (audio) gets moved to a radio frequency (a carrier) that antennas can radiate efficiently and that different stations can share.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 520 170" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="111.7" x2="240" y2="111.7" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="130.0" y1="25" x2="130.0" y2="125" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M20.0,111.7 L116.2,111.7 L130.0,45.0 L143.8,111.7 L240.0,111.7" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="47.5" y="138" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-6</text>
+      <text x="130.0" y="138" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="212.5" y="138" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">6</text>
+      <text x="130.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">message spectrum X(jω)</text>
+      <line x1="290" y1="111.7" x2="510" y2="111.7" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="400.0" y1="25" x2="400.0" y2="125" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M290.0,111.7 L303.8,111.7 L317.5,78.3 L331.2,111.7 L468.8,111.7 L482.5,78.3 L496.2,111.7 L510.0,111.7" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="317.5" y="138" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">-6</text>
+      <text x="400.0" y="138" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="482.5" y="138" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">6</text>
+      <text x="400.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">after ×cos(ω_c t): copies at ±ω_c</text>
+    </svg>
+    <div class="diagram-cap">Multiplying by a carrier moves the spectrum to ±ω_c (here 6 units), at half amplitude. The signal now occupies a band around the carrier.</div>
+  </div>
+
+  <div class="box trace">
+    <span class="box-label">Bandwidth arithmetic</span>
+    <p style="margin:0;">A message with content from 0 to 5 kHz on a 1 MHz carrier produces a spectrum from 995 kHz to 1005 kHz — a 10 kHz-wide channel, twice the message bandwidth, because the spectrum occupies both sides of the carrier. Neighbouring stations must be spaced at least that far apart. To recover the message, the receiver multiplies by cos(ω<sub>c</sub>t) again, which brings one copy back to 0 (and creates junk at 2ω<sub>c</sub>), then low-pass filters the junk away. Recall that the modulator was <em>linear but time-varying</em> in Chapter 2's classification: that is why its output has frequencies its input did not, something no LTI system can ever do.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="ft-dft-fft">
+  <span class="sec-eyebrow">Section 5.6</span>
+  <h2 class="sec-title">The DFT and FFT in firmware</h2>
+
+  <p>A microcontroller cannot evaluate an integral over all time. What it has is N samples x[0], …, x[N−1]. The <strong>discrete Fourier transform (DFT)</strong> turns those into N frequency-domain values:</p>
+  <pre><code>X[k] = Σ x[n] · e^{−j2πkn/N}      (n = 0 to N−1),   k = 0 to N−1</code></pre>
+  <p>This is Section 4.6's harmonic calculation done for every k. Bin k corresponds to the frequency <code>f<sub>k</sub> = k · f<sub>s</sub> / N</code>, so the <strong>frequency resolution</strong> is f<sub>s</sub>/N: to see finer detail, record for longer.</p>
+
+  <div class="box trace">
+    <span class="box-label">Example — bins and resolution</span>
+    <p style="margin:0;">Sampling at f<sub>s</sub> = 8000 Hz with N = 1024 samples (a 128 ms window) gives a resolution of 8000/1024 = 7.8125 Hz per bin. A 1 kHz tone lands at k = 1000/7.8125 = 128 exactly — a clean single peak. A 1.003 kHz tone falls between bins 128 and 129 and its energy smears across neighbouring bins (leakage). For a real signal the spectrum is conjugate-symmetric, so only bins 0 to N/2 carry independent information; N/2 corresponds to f<sub>s</sub>/2, the limit Chapter 6 will explain.</p>
+  </div>
+
+  <h3>Cost: DFT vs. FFT</h3>
+  <p>Computing all N bins directly costs about N² complex multiplications. For N = 1024 that is over a million. The <strong>fast Fourier transform (FFT)</strong> is an algorithm — not a different transform — that computes exactly the same X[k] using about (N/2)·log₂N complex multiplications: roughly 5,000 for N = 1024, a 200-fold saving. It exploits the repeating structure of e<sup>−j2πkn/N</sup> by splitting the sum into even- and odd-indexed samples recursively, which is why N is usually a power of two. This is what makes real-time spectrum analysis, vibration monitoring and OFDM radios feasible on modest hardware.</p>
+
+  <h3>Code</h3>
+  <p>A direct DFT is fine for learning and for small N:</p>
+  <pre><code>#include &lt;math.h&gt;
+
+// magnitude spectrum, bins 0..N/2.   Bin k is at frequency k * fs / N.
+void dft_mag(const float *x, float *mag, int N) {
+    for (int k = 0; k &lt;= N / 2; k++) {
+        float re = 0.0f, im = 0.0f;
+        for (int n = 0; n &lt; N; n++) {
+            float a = 2.0f * (float)M_PI * k * n / N;
+            re += x[n] * cosf(a);
+            im -= x[n] * sinf(a);
+        }
+        mag[k] = sqrtf(re * re + im * im) / N;   // times 2 for a sinusoid's amplitude (k &gt;= 1)
+    }
+}</code></pre>
+  <p>For real use, call a library FFT. On ARM Cortex-M parts, CMSIS-DSP provides one:</p>
+  <pre><code>arm_rfft_fast_instance_f32 S;
+arm_rfft_fast_init_f32(&amp;S, 1024);
+arm_rfft_fast_f32(&amp;S, in, out, 0);       // out holds interleaved real/imag values
+arm_cmplx_mag_f32(out, mag, 512);        // magnitude per bin
+// Check the CMSIS-DSP docs for the exact packing of bins 0 and N/2 in 'out'.</code></pre>
+
+  <div class="box pitfall">
+    <span class="box-label">Three things that make measured spectra look wrong</span>
+    <p style="margin:0;"><strong>(1) Leakage.</strong> A window that does not hold a whole number of periods creates an artificial jump at its ends and smears energy across bins (Section 4.6). The standard cure is to multiply the samples by a smooth <em>window</em> before the transform, such as Hann: w[n] = 0.5·(1 − cos(2πn/(N−1))). It trades a slightly wider main peak for far less leakage. <strong>(2) Scaling.</strong> Libraries differ on whether they divide by N, and a one-sided spectrum needs a factor of 2 (except at DC). Test with a sinusoid of known amplitude. <strong>(3) Aliasing.</strong> Anything above f<sub>s</sub>/2 is not simply lost — it folds back and appears as a false low-frequency component. That is the subject of Chapter 6.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="worked-problem-ss5">
+  <span class="sec-eyebrow">Section 5.7</span>
+  <h2 class="sec-title">Worked problem — an exponential through an RC filter</h2>
+
+  <div class="box trace">
+    <span class="box-label">Problem</span>
+    <p>The signal x(t) = e<sup>−2t</sup>u(t) is applied to an RC low-pass with h(t) = e<sup>−t</sup>u(t) (RC = 1 s). (a) Find X(jω) and H(jω). (b) Find Y(jω) and, using partial fractions, the output y(t). (c) Verify with direct convolution. (d) Find the peak of y(t) and when it occurs. (e) Check the DC values.</p>
+    <pre><code>(a) X(jω) = 1/(2 + jω)          H(jω) = 1/(1 + jω)          (pairs table, a = 2 and a = 1)
+
+(b) Y(jω) = X·H = 1 / [ (1 + jω)(2 + jω) ]
+
+    Partial fractions:  A/(1 + jω) + B/(2 + jω)
+    A(2 + jω) + B(1 + jω) = 1  →  coefficient of jω: A + B = 0;  constant: 2A + B = 1
+    → A = 1, B = −1
+
+    Y(jω) = 1/(1 + jω) − 1/(2 + jω)
+    y(t)  = ( e^{−t} − e^{−2t} ) u(t)
+
+(c) Direct convolution, for t ≥ 0:
+    y(t) = ∫ e^{−2τ} e^{−(t−τ)} dτ   (0 to t)
+         = e^{−t} ∫ e^{−τ} dτ        (0 to t)
+         = e^{−t} (1 − e^{−t}) = e^{−t} − e^{−2t}      ✓ (same as (b))
+
+(d) dy/dt = −e^{−t} + 2e^{−2t} = 0  →  e^{−t} = 1/2  →  t = ln 2 ≈ 0.693 s
+    y_max = 1/2 − 1/4 = 1/4
+
+(e) Y(0) = X(0) · H(0) = (1/2)(1) = 1/2
+    and ∫ y dt = (1 − 1/2) = 1/2 ✓  (the transform at ω = 0 is the total area)</code></pre>
+    <p><strong>What to take away:</strong> the input decays away quickly, yet the output first <em>rises</em> (peaks at 0.69 s) and then decays — the RC circuit smoothed the sharp initial jump, exactly the smoothing effect of convolution from Chapter 3. Both routes gave the same y(t), but the frequency route needed only a multiplication and a partial-fraction split; that is the working method used with Laplace transforms in Control Systems, now given its physical meaning as gain and phase at each frequency.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="recap-ss5">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>Letting the period of a periodic signal grow to infinity turns the Fourier series into the <strong>Fourier transform</strong>: X(jω) = ∫x(t)e<sup>−jωt</sup>dt and x(t) = (1/2π)∫X(jω)e<sup>jωt</sup>dω. The impulse response's transform H(jω) is the frequency response; for a stable system it equals the Laplace transfer function at s = jω.</li>
+    <li>Key pairs: e<sup>−at</sup>u(t) ↔ 1/(a + jω); a rectangle of width T ↔ 2sin(ωT/2)/ω (sinc); δ(t) ↔ 1; a sinusoid ↔ two impulses at ±ω₀; a periodic signal ↔ impulses of strength 2πc<sub>k</sub> at kω₀.</li>
+    <li>The central property: <strong>convolution in time is multiplication in frequency</strong>, Y = X·H. Other important ones: a time shift changes only phase; a frequency shift is modulation; differentiation multiplies by jω; scaling in time inversely scales frequency; <strong>Parseval</strong>: ∫|x|²dt = (1/2π)∫|X|²dω.</li>
+    <li>Filtering is weighting each frequency by H(jω). The RC low-pass has |H| = 1/√(1 + (ωRC)²), a −3 dB cutoff at 1/RC, and rolls off at 20 dB/decade. An ideal brick-wall filter has a non-causal impulse response and cannot be built; inverting a system requires H to have no zeros.</li>
+    <li><strong>Time-bandwidth trade-off:</strong> the narrower a signal is in time, the wider its spectrum. Multiplying by cos(ω<sub>c</sub>t) shifts the spectrum to ±ω<sub>c</sub> (amplitude modulation), doubling the occupied bandwidth.</li>
+    <li>The <strong>DFT</strong> X[k] = Σx[n]e<sup>−j2πkn/N</sup> gives frequencies k·f<sub>s</sub>/N, so resolution is f<sub>s</sub>/N. The <strong>FFT</strong> computes the same values in ~(N/2)log₂N operations instead of N². Use windows against leakage, check the scaling with a known tone, and beware aliasing above f<sub>s</sub>/2.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-ss5">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>If x(t) has transform X(jω), what happens to the magnitude and phase of the spectrum when the signal is delayed to x(t − 2)?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">The magnitude is unchanged; only the phase changes. The transform becomes e<sup>−j2ω</sup>X(jω), so |X| stays the same and the phase decreases by 2ω — a linear phase term. A pure delay does not change how much of each frequency there is, only when its components line up.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>Why does making a pulse shorter make its spectrum wider?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">By the time-scaling property, x(at) has transform (1/|a|)X(jω/a). Shortening the pulse by a factor a &gt; 1 stretches its spectrum by the same factor a (and lowers the peak by 1/a). For a rectangle of width T, the first spectral zero is at 2π/T, so halving T doubles the width of the main lobe.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>Use the transform pairs to find the output when x(t) = e<sup>−t</sup>u(t) is fed into a system with h(t) = e<sup>−3t</sup>u(t).</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">X(jω) = 1/(1 + jω), H(jω) = 1/(3 + jω), so Y = 1/[(1 + jω)(3 + jω)]. Partial fractions: A = 1/2, B = −1/2, so Y = (1/2)/(1 + jω) − (1/2)/(3 + jω). Therefore y(t) = (1/2)(e<sup>−t</sup> − e<sup>−3t</sup>)u(t).</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 4</span>
+    <p>A voice signal with content up to 4 kHz is amplitude-modulated onto a 600 kHz carrier. What band does it occupy?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">The spectrum is copied to both sides of the carrier, so it occupies 596 kHz to 604 kHz — 8 kHz wide, twice the message bandwidth.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 5</span>
+    <p>You sample at 48 kHz and take a 2048-point FFT. What is the bin spacing, and which bin is nearest to a 1 kHz tone? Will it be a clean single peak?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Bin spacing is 48000/2048 = 23.4375 Hz. The 1 kHz tone falls at k = 1000/23.4375 ≈ 42.67, which is not an integer, so the nearest bin is 43 and the tone's energy will leak into neighbouring bins. Applying a window (such as Hann) before the FFT reduces the leakage.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 6</span>
+    <p>Why can a perfect brick-wall low-pass filter not be implemented in real time?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Its impulse response is h(t) = sin(Wt)/(πt), which is non-zero for t &lt; 0. A causal system must have h(t) = 0 for t &lt; 0, so an ideal filter would have to respond before the input arrives. Real filters approximate it with a gradual roll-off.</div>
+  </div>
+
+</section>
+
+<div class="chapter-nav">
+  <a href="ss-04-fourier-series.html"><span class="lbl">Previous</span>← 4. The Fourier Series</a>
+  <a href="ss-06-sampling-nyquist.html" class="next-wrap"><span class="lbl">Next chapter</span>6. Sampling &amp; the Nyquist Theorem →</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

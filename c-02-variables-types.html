@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C Ch.2 — Variables, Types & Operators — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">C Programming / Ch. 2: Variables & Types</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// C Programming Fundamentals — Chapter 2 of 13</span>
+  <h1>Variables, Types &amp; Operators</h1>
+  <p>Java's types are a convenience layer with a lot of help from the runtime. C's types are a direct description of how many bytes of memory to reserve and how to interpret the bits inside them — nothing more, nothing hidden. This chapter builds exact, no-surprises fluency with C's type system, because half of Chapter 6 (pointers) and Chapter 12 (memory model) is really just this chapter applied to memory addresses instead of values.</p>
+  <div class="meta"><span>Chapter 2 of 13</span><span>Standard C</span><span>Builds on Chapter 1</span></div>
+</section>
+<section class="sec" id="basic-types">
+  <span class="sec-eyebrow">Section 2.1</span>
+  <h2 class="sec-title">The basic types, and what they really are</h2>
+
+  <p>In Java, <code>int</code> is always exactly 32 bits, everywhere, guaranteed by the language spec. In C, the exact size of a type can technically vary by platform (a holdover from C's history running on wildly different hardware) — but on essentially every modern desktop, laptop, and 32-bit+ microcontroller you'll touch, the sizes below are the practical reality.</p>
+
+  <table>
+    <tr><th>Type</th><th>Typical size</th><th>Holds</th></tr>
+    <tr><td><code>char</code></td><td>1 byte</td><td>A single byte — often a character, but really just an 8-bit number (range: -128 to 127, or 0-255 if unsigned)</td></tr>
+    <tr><td><code>int</code></td><td>4 bytes</td><td>A whole number, roughly ±2.1 billion</td></tr>
+    <tr><td><code>float</code></td><td>4 bytes</td><td>A decimal number, ~7 significant digits of precision</td></tr>
+    <tr><td><code>double</code></td><td>8 bytes</td><td>A decimal number, ~15-16 significant digits — the default choice for real engineering math</td></tr>
+  </table>
+
+  <div class="box why">
+    <span class="box-label">Why "typical" and not "guaranteed" — and why it matters for embedded work later</span>
+    <p style="margin:0;">C's standard only guarantees minimum sizes and relative orderings (e.g., <code>int</code> is at least as large as <code>short</code>), not exact sizes — a historical decision that let C run efficiently on very different hardware. On a microcontroller (your later Microcontrollers topic), memory is scarce enough that this ambiguity actually matters: a library called <code>&lt;stdint.h&gt;</code> provides types with <em>guaranteed</em> exact sizes — <code>int32_t</code> (exactly 32 bits, always), <code>uint8_t</code> (exactly 8 bits, unsigned), and so on. Professional embedded C code almost always uses these explicit-width types instead of plain <code>int</code>/<code>char</code>, precisely to avoid depending on a platform's "typical" behavior. File this away now; Chapter 13 revisits it directly.</p>
+  </div>
+
+  <h3>Signed vs. unsigned</h3>
+  <p>Every integer type can be <strong>signed</strong> (can represent negative numbers, the default) or <strong>unsigned</strong> (only non-negative, but doubles the positive range since no bits are "spent" representing sign):</p>
+  <pre><code>signed char c;     // -128 to 127 (the default, "signed" is often omitted)
+unsigned char c;   // 0 to 255
+
+signed int x;      // ~-2.1 billion to ~2.1 billion (the default, "signed" usually omitted)
+unsigned int x;    // 0 to ~4.2 billion</code></pre>
+  <p>Java has no unsigned types at all (a deliberate simplification) — this is a genuinely new concept, and it matters for embedded work: raw sensor readings, hardware register values, and byte-level protocol data (CAN bus frames, from your Motorsport track, are a direct example) are naturally unsigned, and mixing signed and unsigned incorrectly is a classic, hard-to-spot bug (Section 2.4 covers this).</p>
+
+  <h4>In code — checking sizes on your own machine</h4>
+  <pre><code>#include &lt;stdio.h&gt;
+
+int main(void) {
+    printf("char:   %zu byte(s)\n", sizeof(char));
+    printf("int:    %zu byte(s)\n", sizeof(int));
+    printf("float:  %zu byte(s)\n", sizeof(float));
+    printf("double: %zu byte(s)\n", sizeof(double));
+    return 0;
+}</code></pre>
+  <p><code>sizeof</code> is a compile-time operator (not a function call, despite the parentheses-looking syntax) that returns a type's size in bytes — worth running once on your own machine to confirm the "typical" sizes above actually hold there.</p>
+</section>
+<section class="sec" id="declaration-init">
+  <span class="sec-eyebrow">Section 2.2</span>
+  <h2 class="sec-title">Declaration, initialization, and a critical difference from Java</h2>
+
+  <h3>Declaring vs. initializing</h3>
+  <pre><code>int x;        // declaration only -- x exists, but its value is UNDEFINED (garbage!)
+int y = 5;    // declaration + initialization -- y is guaranteed to start as 5</code></pre>
+
+  <div class="box pitfall">
+    <span class="box-label">The single biggest "coming from Java" trap in this chapter</span>
+    <p style="margin:0;">Java always initializes variables to a sensible default (0, null, false) automatically. <strong>C does not.</strong> An uninitialized local variable contains whatever bits happened to already be sitting in that memory location — leftover from whatever used that memory before, effectively random from your program's perspective. Reading an uninitialized variable is legal C (the compiler won't necessarily stop you, though <code>-Wall</code> often warns) and one of the most common sources of bugs that "work on my machine" and then fail mysteriously elsewhere — because the garbage value differs depending on what happened to be in memory beforehand. <strong>Always initialize variables when you declare them</strong>, as a hard personal rule, not just when it's convenient.</p>
+  </div>
+
+  <h3>Multiple declarations and constants</h3>
+  <pre><code>int a = 1, b = 2, c = 3;      // multiple variables, one line
+
+const double PI = 3.14159;    // 'const' -- cannot be reassigned after initialization
+PI = 4.0;                      // COMPILE ERROR: assignment of read-only variable</code></pre>
+  <p><code>const</code> is C's equivalent of Java's <code>final</code> for variables — a compiler-enforced promise that a value won't change after being set. Unlike Java's <code>final</code>, <code>const</code> in C interacts with pointers in a genuinely subtle way (does the pointer itself not change, or does the thing it points to not change?) — this nuance is worth setting aside for now and returning to properly once Chapter 6 gives you pointers to reason about it with.</p>
+</section>
+
+<section class="sec" id="operators">
+  <span class="sec-eyebrow">Section 2.3</span>
+  <h2 class="sec-title">Operators</h2>
+
+  <h3>Arithmetic — mostly familiar, one sharp edge</h3>
+  <pre><code>int a = 7, b = 2;
+printf("%d\n", a + b);   // 9
+printf("%d\n", a - b);   // 5
+printf("%d\n", a * b);   // 14
+printf("%d\n", a / b);   // 3   <-- integer division! Not 3.5
+printf("%d\n", a % b);   // 1   <-- modulo (remainder)</code></pre>
+
+  <div class="box pitfall">
+    <span class="box-label">Integer division — the single most common early bug in C</span>
+    <p style="margin:0;">When both operands of <code>/</code> are integers, C performs <strong>integer division</strong> — the result is truncated toward zero, discarding any fractional part entirely, not rounded. <code>7 / 2</code> is <code>3</code>, not <code>3.5</code>, and not <code>4</code>. To get a decimal result, at least one operand must be a floating-point type: <code>7.0 / 2</code> or <code>(double)a / b</code> (an explicit <strong>type cast</strong>, forcing a temporary conversion) both correctly produce <code>3.5</code>. This single behavior surprises nearly everyone coming from a language with more automatic numeric promotion, and it's a very common source of subtly wrong calculations (e.g. computing an average and getting a truncated integer instead of the real decimal average).</p>
+  </div>
+
+  <h3>Comparison and logical operators</h3>
+  <pre><code>a == b   // equal to
+a != b   // not equal to
+a < b, a > b, a <= b, a >= b
+
+a && b   // logical AND
+a || b   // logical OR
+!a       // logical NOT</code></pre>
+  <p>These behave like Java's, with one conceptual difference worth flagging: C has no true boolean type in older standards (a <code>_Bool</code> type and the more familiar <code>bool</code> keyword exist in modern C via <code>&lt;stdbool.h&gt;</code>, but historically, and still very commonly in real code) — comparisons and logical expressions evaluate to a plain <code>int</code>: <code>0</code> for false, <code>1</code> for true. This matters because in an <code>if</code> condition (Chapter 3), <strong>any non-zero value counts as true</strong> — not just literal <code>1</code> — a pattern that shows up constantly in idiomatic C code.</p>
+
+  <h3>Assignment operators — compound shortcuts</h3>
+  <pre><code>x += 5;   // same as x = x + 5;
+x -= 2;   // same as x = x - 2;
+x *= 3;   // same as x = x * 3;
+x /= 2;   // same as x = x / 2;
+x++;      // same as x = x + 1; (post-increment)
+++x;      // same as x = x + 1; (pre-increment)</code></pre>
+  <p>These transfer directly from Java, including the pre/post-increment distinction (the difference only matters when the increment is embedded inside a larger expression, like <code>arr[i++]</code> — a pattern you'll see constantly once Chapter 5 introduces arrays).</p>
+</section>
+<section class="sec" id="type-conversion">
+  <span class="sec-eyebrow">Section 2.4</span>
+  <h2 class="sec-title">Type conversion — implicit and explicit</h2>
+
+  <h3>Implicit conversion (automatic, sometimes dangerously silent)</h3>
+  <p>C automatically converts between compatible types in many situations — assigning an <code>int</code> to a <code>double</code> variable, or using a <code>char</code> in arithmetic (where it's automatically promoted to an <code>int</code> using its underlying numeric value). This is usually harmless and convenient. It becomes dangerous specifically when it <strong>loses information silently</strong>:</p>
+  <pre><code>int big = 300;
+char small = big;      // no error, no warning by default!
+printf("%d\n", small); // 44 -- NOT 300! Data was silently truncated.</code></pre>
+  <p><strong>What happened:</strong> a <code>char</code> only holds 8 bits (range -128 to 127 if signed). 300 doesn't fit — only the lowest 8 bits of 300's binary representation survive, producing a different, "wrapped around" value. C performs this conversion without complaint by default; it's your responsibility to ensure a value actually fits its destination type.</p>
+
+  <h3>The signed/unsigned trap</h3>
+  <pre><code>unsigned int u = 5;
+int i = -1;
+if (i < u) {
+    printf("i is less than u\n");
+} else {
+    printf("i is NOT less than u\n");   // <-- this one actually prints!
+}</code></pre>
+  <div class="box pitfall">
+    <span class="box-label">Why this genuinely surprising result happens</span>
+    <p style="margin:0;">When a signed and unsigned integer are compared directly, C converts the signed value to unsigned before comparing (a rule called the "usual arithmetic conversions"). <code>-1</code>, reinterpreted as unsigned, becomes an enormous positive number (the unsigned type's maximum value) — because negative numbers are stored as very large bit patterns under the hood (Chapter 10's bitwise chapter explains the "two's complement" representation fully). So <code>-1</code> ends up "greater than" <code>5</code> once both are forced into unsigned form. This is a real, well-documented category of bug in production C code — mixing signed and unsigned types in comparisons or arithmetic without deliberate thought.</p>
+  </div>
+
+  <h3>Explicit conversion — casting</h3>
+  <p>A <strong>cast</strong> forces a conversion deliberately, making your intent visible in the code rather than relying on (or falling victim to) implicit rules:</p>
+  <pre><code>double d = 3.99;
+int i = (int)d;          // explicit cast -- i is 3 (truncated, not rounded)
+
+int a = 7, b = 2;
+double result = (double)a / b;   // cast BEFORE the division happens -- result is 3.5</code></pre>
+  <p>Note the second example carefully: casting <code>a</code> to <code>double</code> before the division forces the <em>entire</em> division to happen in floating-point (since one operand is now a double, the other gets automatically promoted too) — this is the standard idiom for avoiding Section 2.3's integer-division pitfall.</p>
+
+  <div class="box trace">
+    <span class="box-label">Worked problem</span>
+    <p><strong>Problem:</strong> Compute the average of 5 exam scores stored as integers, correctly producing a decimal result.</p>
+    <pre><code>#include &lt;stdio.h&gt;
+
+int main(void) {
+    int scores[5] = {88, 92, 79, 95, 84};   // arrays properly covered in Chapter 5
+    int sum = 0;
+    for (int i = 0; i < 5; i++) {
+        sum += scores[i];
+    }
+    double average = (double)sum / 5;    // cast BEFORE dividing
+    printf("Average: %.2f\n", average);   // Average: 87.60
+    return 0;
+}</code></pre>
+    <p>Without the cast, <code>sum / 5</code> would compute as integer division (<code>439 / 5 = 87</code>, truncated), silently discarding the <code>.6</code> — a realistic, easy-to-miss bug this cast prevents.</p>
+  </div>
+</section>
+
+<section class="sec" id="recap-c2">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>C's basic types (<code>char</code>, <code>int</code>, <code>float</code>, <code>double</code>) describe fixed-size memory layouts, not guaranteed-portable abstractions like Java's — <code>&lt;stdint.h&gt;</code> types (covered fully in Chapter 13) give exact, guaranteed widths when that matters.</li>
+    <li>Unlike Java, <strong>local variables are not automatically initialized</strong> — reading one before assigning it is legal but produces garbage; always initialize on declaration as a hard rule.</li>
+    <li><strong>Integer division truncates</strong> toward zero rather than rounding; get a decimal result by casting at least one operand to a floating-point type before the division happens.</li>
+    <li><strong>Implicit type conversions</strong> can silently lose data (assigning a too-large int to a char) or produce surprising results (mixing signed and unsigned in a comparison) — C won't stop you by default.</li>
+    <li><strong>Explicit casts</strong> — <code>(type)expression</code> — make conversion intent visible and let you control exactly when and how a conversion happens, rather than relying on implicit rules.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-c2">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>What value does "int x; printf("%d", x);" print, and why is this different from Java?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">An unpredictable "garbage" value — whatever bits happened to already be in that memory location. Unlike Java, C does not automatically initialize local variables to a default value.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>What does 9 / 4 evaluate to in C, and how would you get 2.25 instead?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">9 / 4 evaluates to 2 (integer division, truncated). To get 2.25, cast at least one operand to a floating-point type first, e.g. (double)9 / 4.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>Why can comparing a signed int of -1 against an unsigned int produce a surprising result?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">C converts the signed value to unsigned before comparing when the types are mixed. -1 reinterpreted as unsigned becomes a very large positive number, so it can end up appearing "greater than" a small unsigned value, which is the opposite of what you'd expect from the signed values alone.</div>
+  </div>
+</section>
+
+<div class="chapter-nav">
+  <a href="c-01-getting-started.html"><span class="lbl">Previous</span>← 1. Getting Started with C</a>
+  <a href="c-03-control-flow.html" class="next-wrap"><span class="lbl">Next chapter</span>3. Control Flow: Decisions & Loops →</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

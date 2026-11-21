@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Ch.7 — Pandas — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">Python for Engineering / Ch. 7: Pandas</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// Python for Engineering — Chapter 7 of 10</span>
+  <h1>Pandas — Tabular &amp; Time-Series Data</h1>
+  <p>NumPy (Chapters 4-5) is built for arrays of uniform numbers. Real engineering data is rarely that clean — it's a table with named columns of different types, timestamps, and gaps. Pandas is the library built specifically for that shape of data, and it's what you'll actually reach for when analyzing telemetry logs, CSVs, or any spreadsheet-like dataset.</p>
+  <div class="meta"><span>Chapter 7 of 10</span><span>pip install pandas</span><span>Builds on Chapters 2, 4</span></div>
+</section>
+<section class="sec" id="dataframes">
+  <span class="sec-eyebrow">Section 7.1</span>
+  <h2 class="sec-title">The DataFrame — a table, not just an array</h2>
+
+  <pre><code>pip install pandas</code></pre>
+  <pre><code>import pandas as pd    # the near-universal convention, like np and plt
+
+data = {
+    "sensor": ["temp", "temp", "humidity", "humidity"],
+    "value": [23.5, 24.1, 45.0, 44.8],
+    "time": [1, 2, 1, 2]
+}
+df = pd.DataFrame(data)
+print(df)
+#     sensor  value  time
+# 0     temp   23.5     1
+# 1     temp   24.1     2
+# 2  humidity   45.0     1
+# 3  humidity   44.8     2</code></pre>
+
+  <div class="box what">
+    <span class="box-label">How a DataFrame relates to what you already know</span>
+    <p style="margin:0;">A DataFrame is essentially built from Chapter 2's dictionary (each key becomes a named column) combined with Chapter 4's NumPy arrays (each column is internally stored as one, giving vectorized speed) — but organized as rows and labeled columns, like a spreadsheet or a database table, rather than a flat list of numbers. This is precisely the missing piece between NumPy's uniform numeric arrays and the messy, mixed-type, labeled reality of real telemetry logs and CSV exports.</p>
+  </div>
+
+  <h3>Reading real data — CSV files</h3>
+  <pre><code>df = pd.read_csv("telemetry.csv")
+print(df.head())          # first 5 rows -- a quick sanity check on any new dataset
+print(df.info())            # column names, types, and non-null counts, all at once
+print(df.describe())         # count, mean, std, min, max, quartiles -- for every numeric column</code></pre>
+  <p><code>read_csv</code> directly replaces C Chapter 11's manual <code>fopen</code>/line-parsing entirely — one line reads, type-infers, and structures an entire file, instead of a hand-written parsing loop.</p>
+
+  <h3>Selecting rows and columns</h3>
+  <pre><code>print(df["value"])                    # one column, as a Series (a labeled 1D array)
+print(df[["sensor", "value"]])           # multiple columns, as a smaller DataFrame
+
+print(df[df["sensor"] == "temp"])          # BOOLEAN MASKING -- exactly Chapter 4, Section 4.3,
+                                              # now filtering rows of a table instead of a 1D array
+
+print(df.loc[0])                             # row by LABEL (index 0)
+print(df.iloc[0])                             # row by POSITION (the first row, regardless of label)</code></pre>
+  <div class="box why">
+    <span class="box-label">Boolean masking, generalized</span>
+    <p style="margin:0;">This is the exact same idea from Chapter 4, Section 4.3 — <code>df[condition]</code> keeps only the rows where <code>condition</code> is <code>True</code> — just now filtering entire rows of a labeled table instead of elements of a plain array. If Chapter 4's masking felt natural, this should too; it's the identical mental model, one level up in structure.</p>
+  </div>
+</section>
+<section class="sec" id="groupby">
+  <span class="sec-eyebrow">Section 7.2</span>
+  <h2 class="sec-title">groupby — aggregating by category</h2>
+
+  <pre><code>df = pd.DataFrame({
+    "sensor": ["temp", "temp", "temp", "humidity", "humidity", "humidity"],
+    "value": [23.5, 24.1, 23.8, 45.0, 44.8, 45.2]
+})
+
+print(df.groupby("sensor")["value"].mean())
+# sensor
+# humidity    45.00
+# temp        23.80
+# Name: value, dtype: float64
+
+print(df.groupby("sensor")["value"].agg(["mean", "std", "min", "max"]))   # several stats at once</code></pre>
+
+  <div class="diagram">
+    <svg viewBox="0 0 600 170" xmlns="http://www.w3.org/2000/svg">
+      <g font-family="Space Mono" font-size="10" fill="var(--text)">
+        <text x="20" y="20" fill="var(--copper)">Split</text>
+        <rect x="20" y="30" width="120" height="90" fill="var(--surface-2)" stroke="var(--signal)"/><text x="80" y="55" text-anchor="middle">all rows</text>
+        <line x1="150" y1="75" x2="200" y2="45" stroke="var(--amber)" marker-end="url(#am1)"/>
+        <line x1="150" y1="75" x2="200" y2="105" stroke="var(--amber)" marker-end="url(#am1)"/>
+        <text x="240" y="20" fill="var(--copper)">Apply</text>
+        <rect x="210" y="25" width="110" height="40" fill="var(--surface-2)" stroke="var(--amber)"/><text x="265" y="49" text-anchor="middle" font-size="9">temp rows → mean()</text>
+        <rect x="210" y="85" width="110" height="40" fill="var(--surface-2)" stroke="var(--amber)"/><text x="265" y="109" text-anchor="middle" font-size="9">humidity rows → mean()</text>
+        <line x1="320" y1="45" x2="370" y2="65" stroke="var(--signal)" marker-end="url(#am1)"/>
+        <line x1="320" y1="105" x2="370" y2="85" stroke="var(--signal)" marker-end="url(#am1)"/>
+        <text x="440" y="20" fill="var(--copper)">Combine</text>
+        <rect x="380" y="55" width="140" height="40" fill="var(--surface-2)" stroke="var(--copper)"/><text x="450" y="79" text-anchor="middle" font-size="9">one result per group</text>
+      </g>
+    </svg>
+    <div class="diagram-cap">groupby follows "split, apply, combine": split rows by category, apply an aggregation to each group, combine into one summary table.</div>
+  </div>
+
+  <div class="box why">
+    <span class="box-label">What this replaces</span>
+    <p style="margin:0;">Without <code>groupby</code>, computing "average per sensor" would mean manually finding each unique sensor name (Chapter 2's sets), looping over rows, and accumulating sums and counts per category by hand — exactly the pattern the telemetry-log worked problem in Chapter 2 built manually with a plain dictionary. <code>groupby</code> is that entire pattern, generalized and optimized, in one line — and it's genuinely one of the most-used operations in real engineering data analysis, since "summarize by category" (per sensor, per test run, per vehicle, per driver) is an extremely common question to ask of real data.</p>
+  </div>
+</section>
+
+<section class="sec" id="time-series">
+  <span class="sec-eyebrow">Section 7.3</span>
+  <h2 class="sec-title">Time series — Pandas' other specialty</h2>
+
+  <pre><code>df = pd.DataFrame({
+    "timestamp": pd.to_datetime(["2026-01-01 10:00", "2026-01-01 10:01", "2026-01-01 10:02"]),
+    "speed": [45.2, 46.8, 44.1]
+})
+df = df.set_index("timestamp")     # make the timestamp the row index, not just a column
+print(df)
+
+resampled = df.resample("1min").mean()    # already 1-per-minute here, but this is how you'd
+                                             # DOWNSAMPLE denser data, e.g. from 10Hz to 1Hz
+
+df["speed_smoothed"] = df["speed"].rolling(window=2).mean()   # a MOVING AVERAGE --
+                                                                  # exactly Chapter 1 of Python's
+                                                                  # earlier convolve-based smoothing,
+                                                                  # now built in directly
+print(df)</code></pre>
+
+  <div class="box why">
+    <span class="box-label">Why dedicated time-series support matters for your Motorsport track</span>
+    <p style="margin:0;"><code>pd.to_datetime</code> understands real calendar dates and times (not just plain numbers), <code>resample</code> can cleanly convert between sampling rates (crucial when combining sensors that report at different frequencies — exactly the Sensor Fusion problem from your roadmap), and <code>.rolling().mean()</code> is a one-line moving average, directly replacing the manual convolution-based smoothing from earlier in this Python course. Telemetry data (Data Acquisition &amp; Telemetry, later in your roadmap) is fundamentally time-series data, and this is the standard toolkit for handling it.</p>
+  </div>
+</section>
+<section class="sec" id="worked-problem-py7">
+  <span class="sec-eyebrow">Section 7.4</span>
+  <h2 class="sec-title">Worked problem — comparing two race laps</h2>
+
+  <p>Recall the CPS study guide's Data Acquisition &amp; Telemetry topic: comparing two laps by distance, not time, using NumPy interpolation directly. Here's the same problem, solved far more concisely with Pandas.</p>
+
+  <pre><code>import pandas as pd
+
+lap1 = pd.DataFrame({"time": [0, 1, 2, 3], "speed": [0, 45, 78, 95]})
+lap2 = pd.DataFrame({"time": [0, 1, 2, 3], "speed": [0, 42, 80, 98]})
+
+lap1["distance"] = (lap1["speed"] * lap1["time"].diff().fillna(0)).cumsum()
+lap2["distance"] = (lap2["speed"] * lap2["time"].diff().fillna(0)).cumsum()
+
+merged = pd.merge_asof(lap1.sort_values("distance"), lap2.sort_values("distance"),
+                          on="distance", suffixes=("_lap1", "_lap2"))
+
+merged["speed_diff"] = merged["speed_lap1"] - merged["speed_lap2"]
+print(merged[["distance", "speed_lap1", "speed_lap2", "speed_diff"]])
+
+biggest_gain_row = merged.loc[merged["speed_diff"].idxmax()]
+print(f"Biggest gain at distance {biggest_gain_row['distance']:.1f}m: "
+      f"+{biggest_gain_row['speed_diff']:.1f} km/h")</code></pre>
+
+  <div class="box why">
+    <span class="box-label">What pd.merge_asof is doing, and why it fits this problem exactly</span>
+    <p style="margin:0;"><code>merge_asof</code> aligns two tables by finding the nearest matching value in a sorted column (here, <code>distance</code>) rather than requiring an exact match — precisely the "align by distance, not time" problem from the original telemetry worked example, but expressed as a single built-in operation instead of manually writing <code>np.interp</code> calls for every column you want compared. <code>.idxmax()</code> returns the <em>label</em> of the row with the maximum value in a column (compare to Chapter 4/5's <code>argmax</code>, which returns a plain position) — using <code>.loc</code> with that label retrieves the entire matching row, giving you every column's value at the point of biggest difference in one step.</p>
+  </div>
+</section>
+
+<section class="sec" id="recap-py7">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>A <strong>DataFrame</strong> is a labeled table — dictionaries' named-key structure (Chapter 2) combined with NumPy's vectorized columns (Chapter 4) — built for the mixed-type, labeled reality of real datasets.</li>
+    <li><code>pd.read_csv</code> replaces manual file-parsing (C Chapter 11's discipline) with one line that reads, type-infers, and structures an entire file.</li>
+    <li>Boolean masking on a DataFrame (<code>df[condition]</code>) is the exact same idea as Chapter 4's array masking, applied to whole rows of a table.</li>
+    <li><strong>groupby</strong> follows "split, apply, combine" — splitting rows by category, aggregating each group, and combining into one summary — replacing manual dictionary-based counting/summing.</li>
+    <li>Pandas has dedicated <strong>time-series</strong> support: <code>to_datetime</code>, <code>resample</code> (changing sampling rate), and <code>.rolling().mean()</code> (a built-in moving average) — directly relevant to telemetry and sensor-fusion work later in the roadmap.</li>
+    <li><code>merge_asof</code> aligns two tables by nearest value in a sorted column — the concise, built-in version of manually interpolating and comparing two datasets by a shared axis like distance.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-py7">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>How does a Pandas DataFrame relate to concepts you already know from Chapters 2 and 4?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">It combines a dictionary's named-key structure (each key becomes a labeled column) with NumPy's vectorized array storage (each column is internally a fast, uniformly-typed array) — giving you labeled, mixed-type tabular data with NumPy-level performance for numeric operations.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>What does groupby("sensor")["value"].mean() actually compute, described in plain terms?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">It splits the rows into groups by their sensor value, computes the mean of the value column within each group separately, and combines those per-group results into one summary — the average reading for each distinct sensor type.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>Why is merge_asof, not a regular exact-match merge, the right tool for aligning two laps' telemetry by distance?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Two different laps almost never have measurements at exactly the same distance values, since each lap's samples come from independent points in time. merge_asof aligns rows by their NEAREST matching value in the sorted distance column, rather than requiring an exact match, which is essential when comparing two independently-sampled datasets along a shared continuous axis.</div>
+  </div>
+</section>
+
+<div class="chapter-nav">
+  <a href="py-06-matplotlib.html"><span class="lbl">Previous</span>← 6. Matplotlib — Visualizing Data</a>
+  <a href="py-08-scipy.html" class="next-wrap"><span class="lbl">Next chapter</span>8. SciPy — Signal Processing →</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

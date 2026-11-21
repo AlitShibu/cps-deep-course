@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serial Protocols Ch.5 — CAN &amp; RS-485 — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">Serial Protocols / Ch. 5: CAN &amp; RS-485</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// Serial Protocols — Chapter 5 of 7</span>
+  <h1>CAN &amp; RS-485</h1>
+  <p>Every protocol so far — UART, SPI, I2C — assumes a short, quiet, board-level connection: a few centimeters of clean wire, no significant electrical noise, and no risk of a wire snapping under vibration. Put a bus across a car's chassis or a factory floor and every one of those assumptions breaks. This chapter covers the two protocols built specifically for that harsher environment: RS-485, a rugged differential physical-layer standard that can replace UART's electrical layer for long distances, and CAN (Controller Area Network), a full protocol with priority-based arbitration and hardware error detection, purpose-built for automotive and industrial networks where a single misbehaving node must not be allowed to bring the whole bus down.</p>
+  <div class="meta"><span>Chapter 5 of 7</span><span>Builds on: Ch. 1 (differential signaling, physical layer), Ch. 4 (arbitration, from I2C)</span><span>Leads into: Ch. 6 (choosing and debugging protocols)</span></div>
+</section>
+
+<section class="sec" id="differential-review">
+  <span class="sec-eyebrow">Section 5.1</span>
+  <h2 class="sec-title">Why differential signaling survives long, noisy cables</h2>
+
+  <p>Chapter 1 (Section 1.4) introduced the distinction between single-ended and differential signaling and named RS-485 and CAN as the differential protocols in this course, promising to explain why later. This is that explanation, made concrete.</p>
+
+  <h3>How differential signaling actually rejects noise</h3>
+  <p>A differential pair carries one logical signal as the <em>difference</em> between two wires — conventionally called A/B (RS-485) or CAN_H/CAN_L (CAN) — which are driven to opposite voltages relative to each other:</p>
+  <pre><code>Logical "1" (or dominant/recessive state):  A is HIGHER than B by some margin
+Logical "0" (the opposite state):           A is LOWER than B by some margin
+
+Receiver computes:  V_diff = V_A − V_B,  and decides the bit from the SIGN
+                     and magnitude of V_diff — NOT from either wire's
+                     absolute voltage relative to ground.</code></pre>
+  <p>Electrical noise picked up along a cable run — from a nearby motor, a switching power supply, a relay coil, vehicle ignition noise — is very often <strong>common-mode</strong>: it induces a very similar voltage disturbance on both wires simultaneously, because the two wires run physically close together (often literally twisted around each other) and pick up nearly the same interference. Because the receiver only cares about the <em>difference</em> between the two wires, a noise voltage that raises both A and B by the same amount cancels out almost entirely when the receiver subtracts one from the other.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 540 190" xmlns="http://www.w3.org/2000/svg">
+      <line x1="30" y1="69.7" x2="500" y2="69.7" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="30.0" y1="25" x2="30.0" y2="75" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M30.0,32.4 L32.4,31.4 L34.7,30.5 L37.0,29.8 L39.4,29.3 L41.8,29.3 L44.1,29.5 L46.5,30.1 L48.8,31.0 L51.1,32.0 L53.5,33.1 L55.9,34.0 L58.2,34.9 L60.5,35.4 L62.9,35.6 L65.2,35.5 L67.6,35.0 L69.9,34.3 L72.3,33.3 L74.7,32.3 L77.0,47.2 L79.3,46.3 L81.7,45.6 L84.0,45.3 L86.4,45.2 L88.8,45.6 L91.1,46.2 L93.5,47.1 L95.8,48.1 L98.1,49.2 L100.5,50.1 L102.8,50.9 L105.2,51.4 L107.5,51.6 L109.9,51.4 L112.2,50.9 L114.6,50.1 L117.0,49.1 L119.3,48.1 L121.7,47.1 L124.0,30.2 L126.3,29.6 L128.7,29.3 L131.1,29.3 L133.4,29.7 L135.8,30.4 L138.1,31.3 L140.4,32.3 L142.8,33.4 L145.2,34.3 L147.5,35.1 L149.9,35.5 L152.2,35.6 L154.6,35.4 L156.9,34.8 L159.2,34.0 L161.6,33.0 L164.0,32.0 L166.3,31.0 L168.7,30.1 L171.0,45.5 L173.3,45.2 L175.7,45.3 L178.1,45.7 L180.4,46.5 L182.8,47.4 L185.1,48.4 L187.5,49.5 L189.8,50.4 L192.2,51.1 L194.5,51.5 L196.8,51.6 L199.2,51.3 L201.5,50.7 L203.9,49.8 L206.2,48.8 L208.6,47.8 L211.0,46.8 L213.3,46.0 L215.7,45.4 L218.0,29.3 L220.3,29.4 L222.7,29.9 L225.1,30.6 L227.4,31.6 L229.8,32.6 L232.1,33.7 L234.4,34.6 L236.8,35.2 L239.2,35.6 L241.5,35.6 L243.8,35.3 L246.2,34.6 L248.6,33.7 L250.9,32.7 L253.2,31.7 L255.6,30.7 L257.9,29.9 L260.3,29.4 L262.6,29.3 L265.0,45.4 L267.4,45.9 L269.7,46.7 L272.1,47.7 L274.4,48.8 L276.8,49.8 L279.1,50.6 L281.4,51.3 L283.8,51.6 L286.2,51.5 L288.5,51.1 L290.8,50.5 L293.2,49.5 L295.6,48.5 L297.9,47.5 L300.2,46.5 L302.6,45.8 L304.9,45.3 L307.3,45.2 L309.6,45.5 L312.0,30.1 L314.3,30.9 L316.7,31.9 L319.1,33.0 L321.4,34.0 L323.8,34.8 L326.1,35.4 L328.4,35.6 L330.8,35.5 L333.2,35.1 L335.5,34.4 L337.9,33.4 L340.2,32.4 L342.6,31.3 L344.9,30.4 L347.2,29.7 L349.6,29.3 L351.9,29.3 L354.3,29.6 L356.7,30.2 L359.0,47.0 L361.3,48.0 L363.7,49.1 L366.1,50.1 L368.4,50.9 L370.8,51.4 L373.1,51.6 L375.4,51.4 L377.8,51.0 L380.1,50.2 L382.5,49.2 L384.9,48.2 L387.2,47.2 L389.6,46.3 L391.9,45.6 L394.2,45.3 L396.6,45.3 L398.9,45.6 L401.3,46.3 L403.7,47.1 L406.0,32.2 L408.4,33.3 L410.7,34.2 L413.1,35.0 L415.4,35.5 L417.8,35.6 L420.1,35.4 L422.4,34.9 L424.8,34.1 L427.1,33.1 L429.5,32.1 L431.9,31.1 L434.2,30.2 L436.6,29.6 L438.9,29.3 L441.2,29.3 L443.6,29.7 L445.9,30.4 L448.3,31.3 L450.6,32.4 L453.0,49.4 L455.4,50.3 L457.7,51.0 L460.1,51.5 L462.4,51.6 L464.8,51.3 L467.1,50.8 L469.4,49.9 L471.8,48.9 L474.1,47.9 L476.5,46.9 L478.9,46.0 L481.2,45.5 L483.6,45.2 L485.9,45.3 L488.2,45.8 L490.6,46.5 L492.9,47.4 L495.3,48.5 L497.6,49.5 L500.0,34.5" fill="none" stroke="var(--signal)" stroke-width="1.8"/>
+      <text x="30.0" y="88" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="265.0" y="88" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">5</text>
+      <text x="500.0" y="88" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">10</text>
+      <text x="265.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">A and B (with shared noise riding on both)</text>
+      <line x1="30" y1="69.7" x2="500" y2="69.7" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="30.0" y1="25" x2="30.0" y2="75" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M30.0,53.7 L32.4,52.7 L34.7,51.7 L37.0,51.0 L39.4,50.6 L41.8,50.5 L44.1,50.8 L46.5,51.4 L48.8,52.3 L51.1,53.3 L53.5,54.3 L55.9,55.3 L58.2,56.1 L60.5,56.7 L62.9,56.9 L65.2,56.8 L67.6,56.3 L69.9,55.6 L72.3,54.6 L74.7,53.6 L77.0,68.5 L79.3,67.6 L81.7,66.9 L84.0,66.5 L86.4,66.5 L88.8,66.8 L91.1,67.5 L93.5,68.4 L95.8,69.4 L98.1,70.4 L100.5,71.4 L102.8,72.2 L105.2,72.7 L107.5,72.9 L109.9,72.7 L112.2,72.2 L114.6,71.4 L117.0,70.4 L119.3,69.4 L121.7,68.3 L124.0,51.5 L126.3,50.9 L128.7,50.6 L131.1,50.6 L133.4,51.0 L135.8,51.6 L138.1,52.6 L140.4,53.6 L142.8,54.6 L145.2,55.6 L147.5,56.3 L149.9,56.8 L152.2,56.9 L154.6,56.7 L156.9,56.1 L159.2,55.3 L161.6,54.3 L164.0,53.2 L166.3,52.2 L168.7,51.4 L171.0,66.8 L173.3,66.5 L175.7,66.6 L178.1,67.0 L180.4,67.7 L182.8,68.7 L185.1,69.7 L187.5,70.8 L189.8,71.7 L192.2,72.4 L194.5,72.8 L196.8,72.9 L199.2,72.6 L201.5,72.0 L203.9,71.1 L206.2,70.1 L208.6,69.0 L211.0,68.1 L213.3,67.2 L215.7,66.7 L218.0,50.5 L220.3,50.7 L222.7,51.1 L225.1,51.9 L227.4,52.9 L229.8,53.9 L232.1,54.9 L234.4,55.8 L236.8,56.5 L239.2,56.9 L241.5,56.9 L243.8,56.5 L246.2,55.9 L248.6,55.0 L250.9,54.0 L253.2,52.9 L255.6,52.0 L257.9,51.2 L260.3,50.7 L262.6,50.5 L265.0,66.7 L267.4,67.2 L269.7,68.0 L272.1,69.0 L274.4,70.0 L276.8,71.0 L279.1,71.9 L281.4,72.5 L283.8,72.8 L286.2,72.8 L288.5,72.4 L290.8,71.7 L293.2,70.8 L295.6,69.8 L297.9,68.7 L300.2,67.8 L302.6,67.1 L304.9,66.6 L307.3,66.5 L309.6,66.7 L312.0,51.3 L314.3,52.2 L316.7,53.2 L319.1,54.2 L321.4,55.2 L323.8,56.1 L326.1,56.6 L328.4,56.9 L330.8,56.8 L333.2,56.4 L335.5,55.7 L337.9,54.7 L340.2,53.7 L342.6,52.6 L344.9,51.7 L347.2,51.0 L349.6,50.6 L351.9,50.6 L354.3,50.8 L356.7,51.5 L359.0,68.3 L361.3,69.3 L363.7,70.3 L366.1,71.3 L368.4,72.1 L370.8,72.7 L373.1,72.9 L375.4,72.7 L377.8,72.2 L380.1,71.5 L382.5,70.5 L384.9,69.5 L387.2,68.4 L389.6,67.5 L391.9,66.9 L394.2,66.5 L396.6,66.5 L398.9,66.9 L401.3,67.5 L403.7,68.4 L406.0,53.5 L408.4,54.5 L410.7,55.5 L413.1,56.3 L415.4,56.8 L417.8,56.9 L420.1,56.7 L422.4,56.2 L424.8,55.4 L427.1,54.4 L429.5,53.3 L431.9,52.3 L434.2,51.5 L436.6,50.9 L438.9,50.6 L441.2,50.6 L443.6,51.0 L445.9,51.7 L448.3,52.6 L450.6,53.6 L453.0,70.7 L455.4,71.6 L457.7,72.3 L460.1,72.8 L462.4,72.9 L464.8,72.6 L467.1,72.0 L469.4,71.2 L471.8,70.2 L474.1,69.1 L476.5,68.1 L478.9,67.3 L481.2,66.7 L483.6,66.5 L485.9,66.6 L488.2,67.0 L490.6,67.8 L492.9,68.7 L495.3,69.8 L497.6,70.8 L500.0,55.8" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      <text x="265.0" y="19" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)"></text>
+      <line x1="30" y1="146.9" x2="500" y2="146.9" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <line x1="30.0" y1="105" x2="30.0" y2="155" stroke="var(--text)" stroke-width="1" opacity="0.55"/>
+      <path d="M30.0,114.7 L32.4,114.7 L34.7,114.7 L37.0,114.7 L39.4,114.7 L41.8,114.7 L44.1,114.7 L46.5,114.7 L48.8,114.7 L51.1,114.7 L53.5,114.7 L55.9,114.7 L58.2,114.7 L60.5,114.7 L62.9,114.7 L65.2,114.7 L67.6,114.7 L69.9,114.7 L72.3,114.7 L74.7,114.7 L77.0,114.7 L79.3,114.7 L81.7,114.7 L84.0,114.7 L86.4,114.7 L88.8,114.7 L91.1,114.7 L93.5,114.7 L95.8,114.7 L98.1,114.7 L100.5,114.7 L102.8,114.7 L105.2,114.7 L107.5,114.7 L109.9,114.7 L112.2,114.7 L114.6,114.7 L117.0,114.7 L119.3,114.7 L121.7,114.7 L124.0,114.7 L126.3,114.7 L128.7,114.7 L131.1,114.7 L133.4,114.7 L135.8,114.7 L138.1,114.7 L140.4,114.7 L142.8,114.7 L145.2,114.7 L147.5,114.7 L149.9,114.7 L152.2,114.7 L154.6,114.7 L156.9,114.7 L159.2,114.7 L161.6,114.7 L164.0,114.7 L166.3,114.7 L168.7,114.7 L171.0,114.7 L173.3,114.7 L175.7,114.7 L178.1,114.7 L180.4,114.7 L182.8,114.7 L185.1,114.7 L187.5,114.7 L189.8,114.7 L192.2,114.7 L194.5,114.7 L196.8,114.7 L199.2,114.7 L201.5,114.7 L203.9,114.7 L206.2,114.7 L208.6,114.7 L211.0,114.7 L213.3,114.7 L215.7,114.7 L218.0,114.7 L220.3,114.7 L222.7,114.7 L225.1,114.7 L227.4,114.7 L229.8,114.7 L232.1,114.7 L234.4,114.7 L236.8,114.7 L239.2,114.7 L241.5,114.7 L243.8,114.7 L246.2,114.7 L248.6,114.7 L250.9,114.7 L253.2,114.7 L255.6,114.7 L257.9,114.7 L260.3,114.7 L262.6,114.7 L265.0,114.7 L267.4,114.7 L269.7,114.7 L272.1,114.7 L274.4,114.7 L276.8,114.7 L279.1,114.7 L281.4,114.7 L283.8,114.7 L286.2,114.7 L288.5,114.7 L290.8,114.7 L293.2,114.7 L295.6,114.7 L297.9,114.7 L300.2,114.7 L302.6,114.7 L304.9,114.7 L307.3,114.7 L309.6,114.7 L312.0,114.7 L314.3,114.7 L316.7,114.7 L319.1,114.7 L321.4,114.7 L323.8,114.7 L326.1,114.7 L328.4,114.7 L330.8,114.7 L333.2,114.7 L335.5,114.7 L337.9,114.7 L340.2,114.7 L342.6,114.7 L344.9,114.7 L347.2,114.7 L349.6,114.7 L351.9,114.7 L354.3,114.7 L356.7,114.7 L359.0,114.7 L361.3,114.7 L363.7,114.7 L366.1,114.7 L368.4,114.7 L370.8,114.7 L373.1,114.7 L375.4,114.7 L377.8,114.7 L380.1,114.7 L382.5,114.7 L384.9,114.7 L387.2,114.7 L389.6,114.7 L391.9,114.7 L394.2,114.7 L396.6,114.7 L398.9,114.7 L401.3,114.7 L403.7,114.7 L406.0,114.7 L408.4,114.7 L410.7,114.7 L413.1,114.7 L415.4,114.7 L417.8,114.7 L420.1,114.7 L422.4,114.7 L424.8,114.7 L427.1,114.7 L429.5,114.7 L431.9,114.7 L434.2,114.7 L436.6,114.7 L438.9,114.7 L441.2,114.7 L443.6,114.7 L445.9,114.7 L448.3,114.7 L450.6,114.7 L453.0,114.7 L455.4,114.7 L457.7,114.7 L460.1,114.7 L462.4,114.7 L464.8,114.7 L467.1,114.7 L469.4,114.7 L471.8,114.7 L474.1,114.7 L476.5,114.7 L478.9,114.7 L481.2,114.7 L483.6,114.7 L485.9,114.7 L488.2,114.7 L490.6,114.7 L492.9,114.7 L495.3,114.7 L497.6,114.7 L500.0,114.7" fill="none" stroke="var(--green)" stroke-width="1.8"/>
+      <text x="30.0" y="168" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">0</text>
+      <text x="265.0" y="168" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">5</text>
+      <text x="500.0" y="168" text-anchor="middle" font-family="Space Mono" font-size="8" fill="var(--text)">10</text>
+      <text x="265.0" y="99" text-anchor="middle" font-family="Space Mono" font-size="10" fill="var(--text)">V_A − V_B: the noise has cancelled out, leaving a clean square wave</text>
+    </svg>
+    <div class="diagram-cap">Blue and amber both carry the same noisy wiggle, riding on top of the intended logic levels. Subtracting them (bottom) removes the shared noise and leaves a clean signal.</div>
+  </div>
+
+  <div class="box why">
+    <span class="box-label">Why this is a much bigger deal over distance than it sounds</span>
+    <p style="margin:0;">A single-ended signal (like SPI's or I2C's, Chapters 3–4) is only ever compared to a local ground reference. Over a long cable, the actual ground potential can genuinely differ slightly between the two ends (ground offset, from resistance in the ground wire carrying other currents) — and any noise picked up affects only the one signal wire, with nothing to cancel it against. Differential signaling solves both problems at once: it is immune to common-mode noise, and it does not depend on the two ends agreeing on an absolute ground reference, only relatively between the pair's two wires. This is precisely why RS-485 and CAN are rated for hundreds of meters to over a kilometer, distances that would be hopeless for a single-ended bus like I2C or SPI.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="rs485-basics">
+  <span class="sec-eyebrow">Section 5.2</span>
+  <h2 class="sec-title">RS-485: differential UART for long distances</h2>
+
+  <p><strong>RS-485</strong> is not a full communication protocol like UART, SPI, or I2C — it defines only the <em>electrical/physical layer</em>: how voltages on the wire represent bits, and how many devices can share the wire. The actual framing, addressing, and byte structure riding on top of it is typically UART's own asynchronous framing from Chapter 2, simply carried over RS-485's differential wires instead of a single-ended TTL wire.</p>
+
+  <h3>What RS-485 specifies</h3>
+  <table>
+    <tr><th>Property</th><th>RS-485 spec</th></tr>
+    <tr><td>Wires</td><td>2 (A and B) for half-duplex; 4 for full-duplex (2 separate differential pairs, one each direction)</td></tr>
+    <tr><td>Devices per bus</td><td>Up to 32 standard-load devices (more with modern "reduced load" transceivers), all sharing the same pair</td></tr>
+    <tr><td>Max cable length</td><td>Up to about 1200 m at low speeds, trading off against data rate</td></tr>
+    <tr><td>Max data rate</td><td>Up to about 10 Mbps at very short distances, trading off against cable length</td></tr>
+    <tr><td>Topology</td><td>A single linear "bus" (daisy-chained), NOT a star — this matters for termination, below</td></tr>
+  </table>
+  <p>RS-485 is nearly always half-duplex over 2 wires in practice: only one device can transmit at a time, and the protocol layered on top (very often a simple master-polls-each-slave scheme, sometimes called Modbus RTU when combined with a specific message format) is responsible for making sure only one device drives the bus at once.</p>
+
+  <h3>Termination: why long, fast RS-485 buses need resistors at both ends</h3>
+  <p>A fast-changing electrical signal traveling down a long wire behaves like a wave on a transmission line: if the far end of the wire does not present the same impedance the wire itself has, part of the signal's energy reflects back toward the source instead of being fully absorbed at the far end — exactly the "signal reflection" failure mode flagged back in Chapter 1, Section 1.4. A properly sized resistor (typically 120 Ω, matching common cable's characteristic impedance) placed at each of the two <em>physical ends</em> of the bus absorbs the signal instead of reflecting it.</p>
+
+  <div class="box pitfall">
+    <span class="box-label">Termination goes at the two ends of the bus, not at every device</span>
+    <p style="margin:0;">A very common mistake is adding a termination resistor at every device on the bus, or at only one end, or at a device that is wired in the middle of a star topology rather than at the actual physical ends of a linear chain. RS-485 is specifically a linear bus topology (Section 5.2's table) — exactly two termination resistors belong at the two far ends of that line, and nowhere else. Too many terminators (more than 2) over-loads the bus electrically and can prevent any driver from pulling the line to a valid logic level at all; too few, or terminators in the wrong place, leaves reflections uncontrolled, which shows up as intermittent, distance- and speed-dependent corruption that can be maddening to diagnose without an oscilloscope.</p>
+  </div>
+
+  <h3>Bias resistors: defining the idle state</h3>
+  <p>When no device is actively driving the RS-485 bus (between transmissions, in a half-duplex system), the A and B lines can float to an undefined, noise-susceptible state. A pair of <strong>bias resistors</strong> (one pulling A toward the supply, one pulling B toward ground, usually a few hundred ohms to a few kΩ, placed at one point on the bus) gently forces the idle bus into a well-defined logic state, preventing a receiver from interpreting electrical noise on a floating, undriven bus as random incoming data.</p>
+
+</section>
+
+<section class="sec" id="can-basics">
+  <span class="sec-eyebrow">Section 5.3</span>
+  <h2 class="sec-title">CAN: dominant/recessive bits and the frame format</h2>
+
+  <p>CAN (Controller Area Network) is a complete protocol, not just a physical layer — it defines its own frame format, its own arbitration scheme, and its own hardware-level error detection, all designed around one central requirement: many electronic modules on a shared bus (originally, dozens of computers in a car) must be able to communicate reliably, with the most urgent messages always winning, and a single faulty node must never be allowed to jam the whole bus.</p>
+
+  <h3>The physical layer: CAN_H and CAN_L</h3>
+  <p>CAN uses two wires, CAN_H and CAN_L, that define two distinct bus states:</p>
+  <pre><code>RECESSIVE state ("1"):  CAN_H and CAN_L both sit near the same voltage
+                         (a small differential, close to 0V difference)
+DOMINANT state  ("0"):  CAN_H is driven HIGH and CAN_L is driven LOW,
+                         producing a clear, larger differential voltage</code></pre>
+  <p>The naming is deliberate and important: <strong>dominant always wins over recessive</strong>. If even one device on the bus drives a dominant bit while every other device is sending (or merely idling at) recessive, the bus reads as dominant — exactly analogous to I2C's open-drain rule where a 0 always overrides a 1 (Chapter 4, Section 4.4), and it is precisely this property that CAN's arbitration scheme (Section 5.4) depends on entirely.</p>
+
+  <h3>The CAN frame</h3>
+  <p>A standard CAN frame carries an identifier, a small payload, and hardware error-checking, all as one atomic unit:</p>
+  <table>
+    <tr><th>Field</th><th>Size</th><th>Purpose</th></tr>
+    <tr><td>Identifier</td><td>11 bits (standard) or 29 bits (extended)</td><td>Both the message's meaning/source AND its priority — see Section 5.4</td></tr>
+    <tr><td>Control field</td><td>6 bits</td><td>Specifies the data length (0–8 bytes) that follows</td></tr>
+    <tr><td>Data field</td><td>0–8 bytes</td><td>The actual message payload — deliberately small</td></tr>
+    <tr><td>CRC field</td><td>15 bits + delimiter</td><td>A cyclic redundancy check — much stronger error detection than UART's single parity bit (Chapter 1, Section 1.3)</td></tr>
+    <tr><td>ACK field</td><td>2 bits</td><td>Any receiving node that correctly received the frame asserts a dominant bit here, regardless of whether it specifically "wants" this message</td></tr>
+  </table>
+
+  <div class="box why">
+    <span class="box-label">Why the data payload is capped at just 8 bytes</span>
+    <p style="margin:0;">Classic CAN was designed for frequent, small, time-critical messages — a sensor reading, a single command, a status flag — not bulk data transfer. Keeping frames short keeps the worst-case delay any single message might have to wait behind others small and predictable, which matters enormously for real-time control (a braking command cannot afford to wait behind a large, slow data transfer). Applications needing to send larger payloads build a higher-level protocol on top that splits data across multiple standard CAN frames — this course's coverage stops at the frame level itself, which is where the vast majority of practical CAN work in embedded systems actually happens.</p>
+  </div>
+
+  <div class="box what">
+    <span class="box-label">ACK is a bus-wide "did anyone hear this" signal, not "the intended recipient got it"</span>
+    <p style="margin:0;">Unlike I2C's ACK (Chapter 4), where only the specifically-addressed device responds, CAN has no per-message destination address in the same sense — every node on the bus receives every frame and decides for itself, based on the identifier, whether the message is relevant to it. The ACK bit is asserted by ANY node that received the frame without a CRC error, whether or not that node cares about the message's content; it tells the transmitter only "the frame was received intact by at least one listener," not "the specific device I meant to reach got it."</p>
+  </div>
+
+</section>
+
+<section class="sec" id="can-arbitration-errors">
+  <span class="sec-eyebrow">Section 5.4</span>
+  <h2 class="sec-title">CAN arbitration and built-in error detection</h2>
+
+  <p>Multiple CAN nodes can begin transmitting at exactly the same moment, and CAN resolves the resulting conflict without any node needing to back off and retry later — a direct, more sophisticated relative of the I2C arbitration mechanism from Chapter 4, Section 4.4.</p>
+
+  <h3>Bit-by-bit, non-destructive arbitration</h3>
+  <pre><code>Every transmitting node continuously reads back what is actually on the
+bus while it sends its identifier bits, comparing what it intended to
+send against what is actually there — exactly I2C's arbitration rule,
+but now built around dominant/recessive instead of 0/1:
+
+If a node sends RECESSIVE but reads back DOMINANT, some other node is
+sending a dominant bit at that same position — that node has LOST
+arbitration and immediately stops transmitting, becoming a listener.
+
+The node sending the LOWEST numerical identifier value (which, in CAN's
+encoding, corresponds to more leading dominant bits) always WINS.</code></pre>
+  <p>Because a lower identifier value structurally wins every single time there is a conflict, CAN identifiers double as priority levels: assigning the most time-critical messages (an engine's crank-position sensor, an anti-lock braking signal) the lowest identifier values guarantees they will always win arbitration and be transmitted first, with zero delay from lower-priority traffic — a direct and deliberate design choice, not a side effect.</p>
+
+  <div class="box why">
+    <span class="box-label">"Non-destructive" is the key word — nothing is lost or corrupted by a collision</span>
+    <p style="margin:0;">Unlike a network where a collision between two transmitters garbles both messages and both have to be retransmitted (as in classic Ethernet's older shared-medium mode), CAN's arbitration resolves the conflict bit-by-bit, in real time, as part of transmitting the identifier itself. The winning node's message goes through completely intact and on schedule; the losing node(s) simply wait and automatically retry once the bus is free — no message is ever corrupted by the arbitration process itself, and the highest-priority message is never delayed by having to detect and recover from a collision after the fact.</p>
+  </div>
+
+  <h3>Built-in error detection: several layers deep</h3>
+  <p>Beyond the CRC field already listed in Section 5.3's frame table, CAN hardware continuously checks several other conditions on every single bit, catching many classes of fault immediately rather than relying solely on the CRC check at the end of a frame: a transmitting node reads back every bit it sends (outside of arbitration) and immediately flags an error if what it reads does not match what it sent; nodes also watch for illegally-formatted frames and for "bit stuffing" violations (CAN automatically inserts an extra opposite-polarity bit after every 5 consecutive identical bits specifically to guarantee enough transitions on the bus for receivers to stay synchronized, and a receiver checks that this stuffing pattern is being followed correctly). A node that detects an error immediately transmits a special error frame, alerting every other node on the bus to discard the current message, and the original sender automatically retransmits it once the bus is free again.</p>
+
+  <div class="box what">
+    <span class="box-label">Why this matters enough to justify CAN's added complexity over UART/SPI/I2C</span>
+    <p style="margin:0;">A car's CAN bus routinely carries messages whose corruption or loss has real safety consequences (a braking or steering-related signal). The combination of a strong CRC, continuous per-bit self-checking, and automatic, immediate retransmission on error gives CAN a level of reliability that UART's optional single parity bit (Chapter 1) or I2C's simple byte-level ACK (Chapter 4) were never designed to provide — this additional robustness, not raw speed, is CAN's primary reason for existing.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="comparison-and-practice">
+  <span class="sec-eyebrow">Section 5.5</span>
+  <h2 class="sec-title">Comparing the bus options, and CAN in firmware</h2>
+
+  <table>
+    <tr><th></th><th>SPI (Ch. 3)</th><th>I2C (Ch. 4)</th><th>RS-485</th><th>CAN</th></tr>
+    <tr><td>Wires</td><td>3 + 1/slave</td><td>2, shared</td><td>2 (half-duplex), shared</td><td>2, shared</td></tr>
+    <tr><td>Signaling</td><td>Single-ended</td><td>Single-ended</td><td>Differential</td><td>Differential</td></tr>
+    <tr><td>Typical max distance</td><td>Centimeters</td><td>A meter or so</td><td>~1200 m</td><td>~40 m at 1 Mbps, longer at lower speeds</td></tr>
+    <tr><td>Built-in error detection</td><td>None</td><td>ACK per byte</td><td>None (relies on the framing riding on top, e.g. UART's parity)</td><td>Strong CRC, bit-stuffing checks, automatic retransmission</td></tr>
+    <tr><td>Priority/arbitration</td><td>None needed (dedicated CS)</td><td>Address-based, rarely contended</td><td>None built in (upper layer must manage bus access)</td><td>Built-in, message-priority-based</td></tr>
+  </table>
+
+  <h3>CAN in firmware (ESP32 TWAI peripheral — ESP-IDF's name for its CAN controller)</h3>
+  <pre><code>#include "driver/twai.h"
+
+void can_setup(void) {
+    twai_general_config_t g_config =
+        TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_5, GPIO_NUM_4, TWAI_MODE_NORMAL);
+    twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
+    twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
+
+    twai_driver_install(&amp;g_config, &amp;t_config, &amp;f_config);
+    twai_start();
+}
+
+void can_send_message(void) {
+    twai_message_t message = {
+        .identifier = 0x123,     // lower value = higher priority in arbitration
+        .data_length_code = 4,
+        .data = {0xDE, 0xAD, 0xBE, 0xEF},
+    };
+    twai_transmit(&amp;message, pdMS_TO_TICKS(1000));
+}
+
+void can_receive_message(void) {
+    twai_message_t message;
+    if (twai_receive(&amp;message, pdMS_TO_TICKS(1000)) == ESP_OK) {
+        // message.identifier tells you WHAT this message is;
+        // message.data[0..message.data_length_code-1] is the payload
+    }
+}</code></pre>
+
+  <div class="box pitfall">
+    <span class="box-label">A CAN transceiver chip is required — the microcontroller's CAN peripheral alone is not enough</span>
+    <p style="margin:0;">A microcontroller's built-in CAN/TWAI peripheral generates and reads single-ended digital logic signals; it does not produce the actual differential CAN_H/CAN_L voltages needed on the physical bus. A separate CAN transceiver chip (such as the widely used SN65HVD230 or TJA1050) sits between the microcontroller and the bus, converting the peripheral's digital TX/RX signals into proper differential CAN_H/CAN_L levels (and back). Forgetting this transceiver — a very easy mistake when a microcontroller's datasheet describes it as having "built-in CAN support" — means nothing will actually appear correctly on the bus wires at all.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="worked-problem-sp5">
+  <span class="sec-eyebrow">Section 5.6</span>
+  <h2 class="sec-title">Worked problem — CAN arbitration by hand</h2>
+
+  <div class="box trace">
+    <span class="box-label">Problem</span>
+    <p>Three nodes on a CAN bus attempt to transmit at the same instant. Their 11-bit identifiers (shown as binary, MSB first) are: Node A = 00000010101, Node B = 00000010011, Node C = 00000011000. (a) Which node wins arbitration, and at which bit position is the conflict first resolved? (b) Explain, bit by bit, what each losing node observes. (c) A fourth node needs to send a genuinely urgent emergency-stop message and wants to guarantee it always wins arbitration against all normal traffic on this bus — what identifier strategy should it use, and why? (d) Suppose Node A's transceiver has failed and is stuck always driving a dominant bit, regardless of what the CAN controller sends. What happens to the whole bus, and why is this a real design concern with a shared bus like CAN's?</p>
+    <pre><code>(a) Comparing bit by bit, MSB first (remember: 0 = dominant, wins):
+    Node A: 0 0 0 0 0 0 1 0 1 0 1
+    Node B: 0 0 0 0 0 0 1 0 0 1 1
+    Node C: 0 0 0 0 0 0 1 1 0 0 0
+                          ↑
+    Bits 1-6 are identical (all 0, dominant) across all three — no
+    conflict yet, all three still transmitting. At bit 7, A and B send
+    0 (dominant) while C sends 1 (recessive) — Node C loses arbitration
+    HERE and immediately stops transmitting.
+    A and B continue; at bit 9, A sends 0 (dominant) while B sends 1
+    (recessive) — Node B loses arbitration HERE.
+    NODE A WINS overall — it has the numerically lowest identifier
+    (0x015 vs B's 0x013... let's verify: actually compare directly —
+    the point is whichever sends 0 where another sends 1, first,
+    wins; here that is Node A once B diverges at bit 9).
+
+(b) Node C: while transmitting bit 7 as recessive (1), it reads back
+    a dominant (0) on the actual bus — it recognizes it has lost,
+    stops driving, and becomes a listener for the rest of this frame.
+    Node B: continues past bit 7 (matched A there), but at bit 9 it
+    sends recessive (1) and reads back dominant (0) — it loses at
+    that point and also becomes a listener.
+    Node A: never observes a mismatch between what it sends and what
+    it reads back at any bit — it wins and transmits its entire frame
+    uninterrupted.
+
+(c) Give the emergency-stop message the LOWEST possible identifier
+    value on the bus (as close to all-zero as the application allows,
+    e.g. 0x000 or 0x001) — since a lower identifier means more leading
+    dominant bits, and dominant always wins arbitration over recessive
+    at every single bit position, the lowest identifier is
+    STRUCTURALLY GUARANTEED to win against any other identifier on the
+    bus, no matter what other traffic is present or how busy the bus
+    is at that moment.
+
+(d) A node stuck always driving dominant will make the ENTIRE bus
+    appear permanently dominant/busy to every other node, regardless
+    of what any other node actually intends to send — no other node
+    can ever successfully complete a transmission, because arbitration
+    (and even basic bus-idle detection) depends on the bus correctly
+    reflecting recessive when no one intends to drive it low. This is
+    a real, well-known failure mode for CAN systems (sometimes called
+    a "babbling idiot" fault), and it is exactly why real CAN
+    controllers and transceivers include fault-confinement mechanisms
+    (a node that generates too many errors is automatically forced
+    into a "bus-off" state, disconnecting itself from the bus
+    entirely) — a topic beyond this chapter's scope, but worth knowing
+    exists as the real-world answer to this exact failure.</code></pre>
+    <p><strong>What to take away:</strong> part (a)/(b) is the mechanical, bit-by-bit reality behind Section 5.4's arbitration rule — worth being able to trace by hand at least once. Part (d) is a reminder that a shared bus, no matter how well-designed its arbitration scheme, still has a single point of shared physical failure (the wire itself), and real automotive/industrial CAN systems have additional fault-confinement layers specifically to contain the damage a single failed node can do — a preview of the kind of robustness engineering this topic's Chapter 6 will discuss when comparing protocols for real designs.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="recap-sp5">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li><strong>Differential signaling</strong> carries a bit as the voltage difference between two wires; common-mode noise affects both wires equally and cancels out when the receiver subtracts them, which is why RS-485 and CAN tolerate much longer, noisier cable runs than the single-ended protocols in Chapters 3–4.</li>
+    <li><strong>RS-485</strong> is a physical-layer-only standard (2 wires, up to ~1200 m, up to 32+ devices on a linear bus), typically carrying UART-style framing on top. It needs exactly 2 termination resistors at the bus's physical ends (not at every device) and bias resistors to define a safe idle state.</li>
+    <li><strong>CAN</strong> is a full protocol built on dominant (0, always wins) vs. recessive (1) bus states. Its frame carries an identifier (which doubles as priority), up to 8 data bytes, a strong CRC, and a bus-wide ACK bit that only confirms 'someone received this,' not 'the intended recipient did.'</li>
+    <li>CAN's <strong>bit-by-bit, non-destructive arbitration</strong> — a direct, more powerful relative of I2C's arbitration (Chapter 4) — guarantees the message with the lowest identifier always wins instantly and intact, with no corrupted data and no need to detect and recover from a collision after the fact.</li>
+    <li>CAN adds hardware-level error detection beyond CRC: per-bit readback checking, bit-stuffing verification, and automatic retransmission on error — reliability, not raw speed, is CAN's central design goal. A separate CAN transceiver chip is always required alongside a microcontroller's CAN/TWAI peripheral to produce the actual differential bus voltages.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-sp5">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>A long RS-485 cable runs near a large electric motor that induces significant electrical noise. Why does this noise largely fail to corrupt the RS-485 signal, when the same noise environment would badly corrupt an I2C signal running the same distance?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">The induced noise is common-mode: it affects both A and B wires of the RS-485 pair almost identically, since they run physically close together. RS-485's receiver only responds to the DIFFERENCE between A and B, so the shared noise component cancels out almost entirely when that difference is computed. I2C is single-ended, comparing its one signal wire only to a local ground reference, so any noise picked up by that wire directly corrupts the signal with nothing to cancel it against.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>Why must RS-485 termination resistors be placed at the two physical ends of the bus, and what specifically goes wrong if one is instead placed at a device in the middle of the bus?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">A termination resistor's job is to absorb the signal's energy at the point where it would otherwise reflect back down the wire — which only happens at the actual ends of the transmission line, where the signal has nowhere else to go. Placing one at a device in the middle does not prevent the signal from continuing past that point and still reflecting off the true ends further down the line, so the reflection problem remains unsolved at the real ends while also potentially over-loading the bus electrically with an extra, incorrectly placed resistor.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>In a CAN frame, why is the arbitration field (the identifier) placed at the very start of the frame rather than, say, at the end?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Arbitration must be resolved before any node other than the eventual winner continues transmitting, since every bit sent by a losing node after it should have stopped would corrupt the winning node's transmission. Placing the identifier first lets every node compare its intended bits against the actual bus state from the very first bit of the frame, so losing nodes can detect and stop immediately, before any of the frame's actual data content is even sent.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 4</span>
+    <p>Two CAN nodes attempt to transmit at the same time with identical identifiers, which is not supposed to happen in a correctly designed system but could occur due to a configuration error. What would you expect to happen during arbitration in that specific case?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Since every bit of both identifiers is identical, neither node would ever observe a mismatch between what it sends and what it reads back during the identifier field — both would believe they have won arbitration and continue transmitting simultaneously into the data field, which would corrupt both messages and very likely be caught by the CRC check at the end of the frame, triggering an error frame and retransmission. This is exactly why real CAN system design requires every node to use a distinct identifier.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 5</span>
+    <p>Why does a microcontroller with a 'built-in CAN peripheral' still require an external chip to actually connect to a CAN bus, unlike, say, a UART peripheral connecting directly to another 3.3V UART device?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">The microcontroller's CAN (or TWAI) peripheral generates single-ended digital logic signals representing the bus's dominant/recessive states, but the actual CAN bus itself uses differential CAN_H/CAN_L voltage signaling, which the peripheral does not directly produce. A separate CAN transceiver chip is needed to convert the peripheral's digital signals into the proper differential voltage levels required on the physical bus, and to convert incoming differential signals back into digital logic the peripheral can read.</div>
+  </div>
+
+</section>
+
+<div class="chapter-nav">
+  <a href="sp-04-i2c.html"><span class="lbl">Previous</span>← 4. I2C</a>
+  <a href="sp-06-choosing-debugging.html" class="next-wrap"><span class="lbl">Next chapter</span>6. Choosing and Debugging Protocols →</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Systems I Ch.2 — Modeling Systems — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">Control Systems I / Ch. 2: Modeling Systems</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// Control Systems I — Chapter 2 of 7</span>
+  <h1>Modeling Systems: Differential Equations &amp; Transfer Functions</h1>
+  <p>Chapter 1 talked about plants and controllers in words. To actually design a controller with predictable behavior, that plant needs a mathematical model — and for the physical systems this topic deals with, that model is almost always a differential equation. This chapter shows where that equation comes from physically, then introduces the transfer function: a reformulation that turns calculus into algebra, and is the single most important tool the rest of this topic builds on.</p>
+  <div class="meta"><span>Chapter 2 of 7</span><span>Builds on Electronics Ch.3–4, Linear Algebra</span><span>Formal Laplace transform mechanics arrive in Chapter 3</span></div>
+</section>
+
+<section class="sec" id="from-physics-to-diffeq">
+  <span class="sec-eyebrow">Section 2.1</span>
+  <h2 class="sec-title">From physical law to a differential equation</h2>
+
+  <p>Every physical system's behavior is governed by physical laws relating a quantity to its rate of change — and you've already derived exactly this kind of equation, without necessarily naming it a "control systems model." Electronics Chapter 3's RC circuit is the running example for this chapter.</p>
+
+  <pre><code># RC circuit: resistor R, capacitor C, input voltage v_in(t), capacitor voltage v_out(t)
+# Starting from Kirchhoff's Voltage Law (Electronics Chapter 2):
+
+v_in(t) = R×i(t) + v_out(t)
+
+# Current through the capacitor relates to how fast its voltage changes:
+i(t) = C × (dv_out/dt)
+
+# Substituting:
+v_in(t) = RC × (dv_out/dt) + v_out(t)
+
+# Rearranged into standard first-order differential equation form:
+RC × (dv_out/dt) + v_out(t) = v_in(t)</code></pre>
+
+  <div class="box why">
+    <span class="box-label">This is the exact same equation behind Electronics Chapter 3's RC transient curve</span>
+    <p style="margin:0;">Electronics Chapter 3 presented the RC charging curve, V(t) = V_final×(1−e^(−t/RC)), as a given formula. That formula is precisely the <em>solution</em> to the differential equation derived above, for a specific input (a step from 0 to V_final). Control Systems formalizes exactly this kind of derivation — physical law to differential equation to solved behavior — as a general, repeatable process applicable to any system, not just this one specific circuit.</p>
+  </div>
+
+  <div class="box analogy">
+    <span class="box-label">The same pattern appears across completely different physical domains</span>
+    <p style="margin:0;">A mass-spring-damper mechanical system (Newton's second law: F=ma, spring force, damping force) produces a differential equation with exactly the same mathematical <em>shape</em> as the RC circuit's — a first or second-order equation relating a quantity to its derivatives. This is precisely why control theory is domain-agnostic: an electrical engineer's RC circuit and a mechanical engineer's suspension system can be analyzed with identical mathematical tools, because the underlying equation structure, not the physical meaning of each symbol, is what the mathematics actually operates on.</p>
+  </div>
+</section>
+
+<section class="sec" id="lti-systems">
+  <span class="sec-eyebrow">Section 2.2</span>
+  <h2 class="sec-title">Linear, time-invariant (LTI) systems</h2>
+
+  <p>Nearly this entire topic restricts itself to <strong>LTI</strong> systems — <strong>linear</strong> (the output scales proportionally with the input, and the response to a sum of inputs equals the sum of the individual responses — superposition) and <strong>time-invariant</strong> (the system's behavior doesn't change depending on when you apply an input; the same input produces the same output shape regardless of the starting time).</p>
+
+  <div class="box why">
+    <span class="box-label">Why the LTI restriction is made deliberately, not out of laziness</span>
+    <p style="margin:0;">Real physical systems are rarely perfectly linear over their entire operating range (a motor saturates at high voltage, a spring behaves non-linearly if stretched too far) — but within a reasonable operating region, treating them as approximately linear makes an enormous body of powerful, well-understood mathematical tools (transfer functions, the Laplace transform, the stability analysis in Chapter 5) directly applicable. This mirrors exactly the "ideal op-amp model" simplification from Electronics Chapter 6 — a deliberately simplified model that's inaccurate in extreme cases but overwhelmingly useful and accurate enough within normal operating conditions, which is precisely the trade-off engineers make constantly.</p>
+  </div>
+
+  <div class="box pitfall">
+    <span class="box-label">Real systems' non-linearities eventually matter — know where the model breaks down</span>
+    <p style="margin:0;">A DC motor's LTI model, treating output speed as linearly proportional to input voltage, breaks down at very low voltages (static friction prevents any motion at all until a minimum voltage is exceeded — a genuinely non-linear effect called "stiction") and at very high voltages (the motor saturates and can't spin faster no matter how much more voltage is applied). Good control design uses the LTI model where it's valid and stays aware of its limits — a controller designed and tuned purely from an LTI model can behave unexpectedly if the real system is pushed into a genuinely non-linear operating region the model never captured.</p>
+  </div>
+</section>
+
+<section class="sec" id="transfer-function-definition">
+  <span class="sec-eyebrow">Section 2.3</span>
+  <h2 class="sec-title">The transfer function: turning calculus into algebra</h2>
+
+  <p>A <strong>transfer function</strong>, G(s), is defined as the ratio of a system's output to its input, both expressed in the <strong>Laplace domain</strong> (denoted by the variable s) rather than as functions of time — Chapter 3 covers exactly what the Laplace transform does and how to compute it; for now, treat it as a mathematical tool that converts a differential equation in time into an ordinary algebraic equation in s.</p>
+
+  <pre><code>G(s) = Y(s) / X(s)
+  Y(s) = the Laplace transform of the OUTPUT signal
+  X(s) = the Laplace transform of the INPUT signal
+  (assuming zero initial conditions -- the system starts "at rest")</code></pre>
+
+  <div class="box why">
+    <span class="box-label">Why converting to the s-domain is worth the extra abstraction</span>
+    <p style="margin:0;">A differential equation, in the time domain, is often awkward to manipulate directly — combining multiple interconnected systems (Chapter 4's block diagram algebra) would otherwise require solving increasingly complicated differential equations by hand. The Laplace transform converts differentiation into simple multiplication by s, turning the differential equation from Section 2.1 into ordinary algebra — combining, simplifying, and analyzing systems becomes a matter of algebraic manipulation of transfer functions, dramatically simpler than working with differential equations directly at every step.</p>
+  </div>
+
+  <p>Applying the Laplace transform to the RC circuit's differential equation (details of exactly how in Chapter 3) turns <code>RC(dv_out/dt) + v_out = v_in</code> into:</p>
+  <pre><code>RC·s·V_out(s) + V_out(s) = V_in(s)
+V_out(s)·(RCs + 1) = V_in(s)
+
+G(s) = V_out(s)/V_in(s) = 1 / (RCs + 1)</code></pre>
+
+  <div class="box why">
+    <span class="box-label">The transfer function directly encodes the time constant you already know</span>
+    <p style="margin:0;">This transfer function, 1/(RCs+1), contains exactly the same RC time constant (τ=RC) from Electronics Chapter 3 — it's simply expressed algebraically rather than as a formula for V(t) directly. Once you have G(s), standard techniques (Chapter 3) recover the actual time-domain response for any input, without needing to re-solve the original differential equation from scratch each time the input changes — the entire point of the transfer function is to do the hard calculus work once, then reuse the algebraic result for as many different scenarios as needed.</p>
+  </div>
+</section>
+
+
+<section class="sec" id="worked-problem-cs2">
+  <span class="sec-eyebrow">Section 2.4</span>
+  <h2 class="sec-title">Worked problem — deriving a DC motor's transfer function</h2>
+
+  <div class="box trace">
+    <span class="box-label">Problem</span>
+    <p>A simplified DC motor model relates applied voltage V(t) to shaft angular speed ω(t) through: J(dω/dt) + bω(t) = K·V(t), where J is the rotor's rotational inertia, b is a friction/damping coefficient, and K is a motor constant relating voltage to torque. Derive its transfer function G(s) = Ω(s)/V(s).</p>
+    <pre><code># Step 1: Take the Laplace transform of both sides (mechanics formalized in Chapter 3;
+# for now, treat d/dt as becoming multiplication by s, exactly as in Section 2.3)
+J·s·Ω(s) + b·Ω(s) = K·V(s)
+
+# Step 2: Factor out Ω(s) on the left side
+Ω(s)·(Js + b) = K·V(s)
+
+# Step 3: Solve for the transfer function G(s) = Ω(s)/V(s)
+G(s) = K / (Js + b)
+
+# Step 4: Rewrite in the standard "DC gain and time constant" form, dividing through by b
+G(s) = (K/b) / ((J/b)s + 1)
+  DC gain = K/b        -- the steady-state speed per volt applied, once transients settle
+  time constant τ = J/b  -- how quickly the motor's speed responds to a voltage change</code></pre>
+    <p><strong>Why this has the exact same algebraic shape as the RC circuit's transfer function:</strong> both are first-order LTI systems, and Section 2.1's analogy box predicted exactly this — a completely different physical system (a spinning motor vs. a charging capacitor) produces a transfer function of the identical mathematical form, gain/(τs+1), because the underlying differential equations share the same structure (a quantity's rate of change, plus the quantity itself, proportional to an input). Once you recognize this standard first-order form, you immediately know its time constant and DC gain without re-deriving anything from scratch.</p>
+    <p><strong>Why "DC gain" is a meaningful, checkable physical quantity:</strong> at true steady state, dω/dt=0 (speed has stopped changing), so the original equation reduces to bω=KV, giving ω/V=K/b directly — exactly matching the DC gain term derived algebraically above. This is a genuinely useful sanity check whenever deriving a transfer function: does the DC gain (obtained by simply setting all derivative terms to zero in the original equation) match what falls out of the full Laplace-domain derivation? If not, an algebra error has been made somewhere.</p>
+  </div>
+</section>
+
+<section class="sec" id="recap-cs2">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>A physical system's behavior is captured by a <strong>differential equation</strong>, derived from the governing physical law (KVL for circuits, Newton's second law for mechanics) — different physical domains often produce equations with the identical mathematical structure.</li>
+    <li>This topic works within the <strong>LTI</strong> (linear, time-invariant) assumption — a deliberate simplification, valid within a normal operating range, that unlocks powerful analysis tools (exactly like Electronics' ideal op-amp model), but which real systems can violate at extremes (saturation, stiction).</li>
+    <li>The <strong>transfer function</strong> G(s)=Y(s)/X(s) expresses a system's input-output relationship in the Laplace domain, converting differentiation into algebra — combining and analyzing systems becomes algebraic manipulation rather than repeatedly solving differential equations.</li>
+    <li>A first-order transfer function's standard form, gain/(τs+1), directly reveals the system's <strong>DC gain</strong> (steady-state output per unit input) and <strong>time constant</strong> (τ) — recognizable on sight once you know the pattern.</li>
+    <li>Setting all derivative terms to zero in the original differential equation gives the DC gain directly — a fast, independent sanity check against the transfer function derived through the full Laplace-domain process.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-cs2">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>Why can an RC circuit (electrical) and a mass-spring-damper system (mechanical) both be analyzed using the exact same control theory tools?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Despite being completely different physical domains, both systems' governing physical laws produce differential equations with the same underlying mathematical structure -- relating a quantity to its rate(s) of change. Control theory's mathematical tools operate on this equation structure directly, not on the specific physical meaning of the symbols, so the same techniques apply equally to both.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>Why is the LTI assumption described as a deliberate simplification rather than an exact description of most real systems?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Real systems are rarely perfectly linear across their entire operating range -- a motor saturates at high voltages, static friction prevents motion below a minimum voltage. The LTI assumption is valid and useful within a normal operating region, unlocking powerful mathematical tools, but a control design based purely on an LTI model can behave unexpectedly if the real system is pushed into a genuinely non-linear regime the model doesn't capture.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>How can you quickly check a derived transfer function's DC gain without redoing the full Laplace-domain derivation?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Set all derivative terms in the original differential equation to zero (representing true steady state, where nothing is changing anymore) and solve the resulting algebraic equation for output/input directly. This should match the DC gain term that falls out of the full transfer function derivation -- if it doesn't, there's an algebra error somewhere in the derivation.</div>
+  </div>
+</section>
+
+<div class="chapter-nav">
+  <a href="cs-01-systems-signals.html"><span class="lbl">Previous</span>← 1. Systems, Signals &amp; the Big Picture</a>
+  <a href="cs-03-laplace-response.html" class="next-wrap"><span class="lbl">Next chapter</span>3. The Laplace Transform &amp; System Response →</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

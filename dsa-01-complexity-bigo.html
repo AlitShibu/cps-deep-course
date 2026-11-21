@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSA Ch.1 — Complexity &amp; Big-O — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">Data Structures &amp; Algorithms / Ch. 1: Complexity &amp; Big-O</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// Data Structures &amp; Algorithms — Chapter 1 of 11</span>
+  <h1>Complexity &amp; Big-O</h1>
+  <p>Every later chapter in this topic ends with the same question: how much does this cost, and how does that cost grow as the data grows? This chapter builds the language for answering it. You will learn to count operations instead of seconds, to read the growth of a function off a piece of code, to use Big-O notation precisely (including its formal definition), to account for memory as well as time, and to recognize the cases where the textbook answer and the real answer on a microcontroller disagree. Code appears in C, the main language of this course, with Python alongside where it makes an idea clearer.</p>
+  <div class="meta"><span>Chapter 1 of 11</span><span>Builds on: C arrays and loops, Python basics</span><span>Leads into: every later chapter in this topic</span></div>
+</section>
+
+<section class="sec" id="why-measure">
+  <span class="sec-eyebrow">Section 1.1</span>
+  <h2 class="sec-title">Why we measure cost, and why not in seconds</h2>
+
+  <p>Two programs solve the same problem. Which is better? The obvious test is to run both and time them, but that answer is fragile: it depends on the processor, the compiler's optimization level, what else is running, and above all on the particular input you happened to try. A program that is instant on 100 items may be unusable on 100,000, and a stopwatch on the small case will never tell you.</p>
+  <p>Algorithm analysis replaces the stopwatch with two questions that do not depend on the machine:</p>
+  <table>
+    <tr><th>Resource</th><th>The question</th><th>Name</th></tr>
+    <tr><td>Time</td><td>How many basic operations does the algorithm perform, as a function of the input size n?</td><td>Time complexity</td></tr>
+    <tr><td>Memory</td><td>How much extra storage does it need, as a function of n?</td><td>Space complexity</td></tr>
+  </table>
+  <p>The input size <strong>n</strong> is whatever grows: the number of elements in an array, the number of characters in a string, the number of nodes in a graph. What counts as a <strong>basic operation</strong> is a deliberate simplification: one comparison, one addition, one array access, one assignment. Each is treated as costing the same single unit. Real machines differ (a division is slower than an addition), but the simplification is justified because the quantity we care about, how the total scales with n, is not changed by constant factors.</p>
+
+  <div class="box why">
+    <span class="box-label">Why this matters more on a microcontroller than on a laptop</span>
+    <p style="margin:0;">On a laptop, a wasteful algorithm often hides behind a fast processor and gigabytes of memory. On an ESP32 or an AVR-based Arduino you have kilobytes of RAM, no operating system to rescue you, and often a hard deadline (a control loop that must finish every millisecond, a UART buffer that overflows if you are slow, as in Serial Protocols Chapter 2). A choice between an O(n) and an O(n²) approach can be the difference between meeting and missing a real-time deadline, and an algorithm that needs O(n) extra memory can simply not fit.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="counting-ops">
+  <span class="sec-eyebrow">Section 1.2</span>
+  <h2 class="sec-title">Counting operations</h2>
+
+  <p>Start with the most honest method: count exactly. Here is a function that sums an array.</p>
+  <pre><code>int sum(const int a[], int n) {
+    int total = 0;              // 1 assignment
+    for (int i = 0; i &lt; n; i++) {   // 1 assignment, n+1 comparisons, n increments
+        total += a[i];          // n additions (each also reads a[i])
+    }
+    return total;               // 1 return
+}</code></pre>
+  <p>The exact count is something like 3n + 4 operations, depending on how finely you count. Now consider a function that checks whether any two elements of an array are equal.</p>
+  <pre><code>int has_duplicate(const int a[], int n) {
+    for (int i = 0; i &lt; n; i++) {
+        for (int j = i + 1; j &lt; n; j++) {
+            if (a[i] == a[j]) return 1;
+        }
+    }
+    return 0;
+}</code></pre>
+  <p>In the worst case (no duplicates) the inner comparison runs (n−1) + (n−2) + … + 1 + 0 times:</p>
+  <pre><code>Total comparisons = n(n − 1) / 2
+
+n = 10     →        45 comparisons
+n = 1,000  →   499,500 comparisons
+n = 100,000 → 4,999,950,000 comparisons</code></pre>
+  <p>Notice what dominates. For large n the formula n(n−1)/2 = n²/2 − n/2 is essentially n²/2: the n/2 term is negligible next to it, and the 1/2 is just a constant. What matters is that doubling n roughly <em>quadruples</em> the work. That growth rate is the real fingerprint of the algorithm, and the next section gives it a name.</p>
+
+  <h3>The growth table that explains everything</h3>
+  <p>The table shows how common growth rates scale. Read it across a row to see how fast a function explodes, and down a column to see how much a better algorithm saves.</p>
+  <table>
+    <tr><th>n</th><th>log₂ n</th><th>n</th><th>n log₂ n</th><th>n²</th><th>2ⁿ</th></tr>
+    <tr><td>10</td><td>3.3</td><td>10</td><td>33</td><td>100</td><td>1,024</td></tr>
+    <tr><td>100</td><td>6.6</td><td>100</td><td>664</td><td>10,000</td><td>≈ 1.3 × 10³⁰</td></tr>
+    <tr><td>1,000</td><td>10.0</td><td>1,000</td><td>9,966</td><td>1,000,000</td><td>≈ 1.1 × 10³⁰¹</td></tr>
+    <tr><td>1,000,000</td><td>19.9</td><td>1,000,000</td><td>19,931,569</td><td>10¹²</td><td>unimaginably large</td></tr>
+  </table>
+
+  <div class="box trace">
+    <span class="box-label">Make it physical: n = 1,000,000 at one million operations per second</span>
+    <p style="margin:0;">Suppose a slow device performs 1,000,000 simple operations per second. An O(n) pass over a million items takes 1 second. An O(n log n) algorithm takes about 20 seconds. An O(n²) algorithm needs 10¹² operations, which is 10⁶ seconds, about 11.6 days. An O(log n) algorithm needs about 20 operations: twenty millionths of a second. The same problem, four algorithms, and a spread from microseconds to weeks. This is why the notation exists.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="big-o">
+  <span class="sec-eyebrow">Section 1.3</span>
+  <h2 class="sec-title">Big-O notation, precisely</h2>
+
+  <p>Big-O captures "how the cost grows" by deliberately throwing away two kinds of detail: constant factors, and everything except the fastest-growing term.</p>
+
+  <h3>The formal definition</h3>
+  <pre><code>f(n) = O(g(n))   means:
+
+    there exist constants c &gt; 0 and n₀ such that
+    f(n) ≤ c · g(n)   for every n ≥ n₀</code></pre>
+  <p>In words: beyond some starting size n₀, f never grows faster than a constant multiple of g. The function g is an <em>upper bound</em> on growth. Check it on a real example: is 3n² + 20n + 500 = O(n²)?</p>
+  <pre><code>Try c = 4. We need 3n² + 20n + 500 ≤ 4n²,  i.e.  n² ≥ 20n + 500.
+
+n = 34:  1,156 ≥ 1,180 ?  No.
+n = 35:  1,225 ≥ 1,200 ?  Yes.
+
+For every n ≥ 35 the gap n² − 20n − 500 keeps growing, so the inequality
+holds from then on. With c = 4 and n₀ = 35 the definition is satisfied.
+Therefore 3n² + 20n + 500 = O(n²).</code></pre>
+
+  <h3>The three simplification rules</h3>
+  <table>
+    <tr><th>Rule</th><th>Example</th></tr>
+    <tr><td>Drop constant factors</td><td>5n → O(n); n²/2 → O(n²)</td></tr>
+    <tr><td>Drop lower-order terms</td><td>n² + 100n + 7 → O(n²)</td></tr>
+    <tr><td>Sequential steps add; nested steps multiply</td><td>A loop of n followed by a loop of n² → O(n + n²) = O(n²). A loop of n containing a loop of n → O(n · n) = O(n²)</td></tr>
+  </table>
+
+  <h3>Big-O is an upper bound, and it comes with relatives</h3>
+  <table>
+    <tr><th>Notation</th><th>Meaning</th><th>Informal reading</th></tr>
+    <tr><td>O(g(n))</td><td>f grows no faster than g (upper bound)</td><td>"at most this bad"</td></tr>
+    <tr><td>Ω(g(n))</td><td>f grows at least as fast as g (lower bound)</td><td>"at least this bad"</td></tr>
+    <tr><td>Θ(g(n))</td><td>both O(g) and Ω(g): a tight bound</td><td>"exactly this rate"</td></tr>
+  </table>
+  <p>In everyday engineering conversation people say "O(n)" when they strictly mean Θ(n), the tight bound. It is worth knowing the difference: saying an algorithm is O(n²) is technically true of a linear algorithm too, since linear growth is also bounded above by n². When precision matters, say Θ.</p>
+
+  <h3>Best, worst, and average case</h3>
+  <p>The same algorithm can behave differently on different inputs of the same size n. Linear search shows this clearly:</p>
+  <table>
+    <tr><th>Case</th><th>Situation</th><th>Comparisons</th></tr>
+    <tr><td>Best</td><td>Target is the first element</td><td>1 → O(1)</td></tr>
+    <tr><td>Worst</td><td>Target is last, or absent</td><td>n → O(n)</td></tr>
+    <tr><td>Average</td><td>Target equally likely at any position</td><td>about n/2 → O(n)</td></tr>
+  </table>
+  <p>Unless stated otherwise, "the complexity" means the <strong>worst case</strong>. That is the right default for engineers: a guarantee that holds for every input is what you need when a deadline depends on it.</p>
+
+  <div class="box pitfall">
+    <span class="box-label">Big-O does not say "this takes n steps"</span>
+    <p style="margin:0;">It says the cost grows proportionally to n for large n. Two O(n) algorithms can differ by a factor of 100 in real speed, and an O(n) algorithm with a large constant can lose to an O(n²) one on small inputs. Big-O compares how algorithms <em>scale</em>, not which is faster at a given n. Section 1.6 returns to this.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="classes">
+  <span class="sec-eyebrow">Section 1.4</span>
+  <h2 class="sec-title">The common complexity classes, with code</h2>
+
+  <h3>O(1): constant time</h3>
+  <p>The cost does not depend on n at all. Reading <code>a[i]</code> is O(1) because an array is contiguous memory: the address is computed directly as <code>base + i × element_size</code>, with no searching.</p>
+  <pre><code>int first(const int a[]) { return a[0]; }        // C: O(1)</code></pre>
+  <pre><code>def first(a): return a[0]                          # Python: O(1)</code></pre>
+
+  <h3>O(n): linear time</h3>
+  <p>One pass over the data. Linear search is the model example.</p>
+  <pre><code>int linear_search(const int a[], int n, int target) {
+    for (int i = 0; i &lt; n; i++) {
+        if (a[i] == target) return i;
+    }
+    return -1;
+}</code></pre>
+  <pre><code>def linear_search(a, target):
+    for i, x in enumerate(a):
+        if x == target:
+            return i
+    return -1</code></pre>
+
+  <h3>O(log n): logarithmic time</h3>
+  <p>The problem size is cut by a constant factor (usually half) at every step. Binary search on a <em>sorted</em> array is the model example: compare with the middle element, discard the half that cannot contain the target, repeat.</p>
+  <pre><code>int binary_search(const int a[], int n, int target) {
+    int lo = 0, hi = n - 1;
+    while (lo &lt;= hi) {
+        int mid = lo + (hi - lo) / 2;   // not (lo+hi)/2: that can overflow
+        if (a[mid] == target) return mid;
+        if (a[mid] &lt; target) lo = mid + 1;
+        else                  hi = mid - 1;
+    }
+    return -1;
+}</code></pre>
+  <pre><code>def binary_search(a, target):
+    lo, hi = 0, len(a) - 1
+    while lo &lt;= hi:
+        mid = (lo + hi) // 2           # Python integers do not overflow
+        if a[mid] == target:
+            return mid
+        if a[mid] &lt; target:
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return -1</code></pre>
+  <p>How many steps? Each iteration halves the remaining range, so at most ⌊log₂ n⌋ + 1 comparisons are needed. For n = 1,000,000 that is ⌊19.93⌋ + 1 = <strong>20 comparisons</strong>, against up to 1,000,000 for linear search. Doubling the data adds just one more step.</p>
+
+  <div class="box pitfall">
+    <span class="box-label">The (lo + hi) overflow bug, a real classic</span>
+    <p style="margin:0;">In C, <code>int mid = (lo + hi) / 2</code> breaks when lo + hi exceeds the largest int. The fix <code>lo + (hi − lo) / 2</code> never overflows. A version of this bug sat undetected for years in widely used library code, because it only appears with arrays of more than a billion elements. On a 16-bit microcontroller, where int tops out at 32,767, the same bug appears at arrays of only about 16,000 elements.</p>
+  </div>
+
+  <h3>O(n log n): linearithmic time</h3>
+  <p>The signature of efficient sorting (Chapter 6): split the problem in half repeatedly (log n levels), doing O(n) work at each level. You will meet it again in merge sort and heap sort.</p>
+
+  <h3>O(n²): quadratic time</h3>
+  <p>Typically two nested loops over the same data, like <code>has_duplicate</code> in Section 1.2. Fine for tiny inputs, painful beyond a few thousand elements.</p>
+
+  <h3>O(2ⁿ): exponential time</h3>
+  <p>The cost doubles with every extra element. The classic example is naive recursive Fibonacci, because each call spawns two more calls that recompute the same values over and over.</p>
+  <pre><code>long fib(int n) {                       // C
+    if (n &lt;= 1) return n;
+    return fib(n - 1) + fib(n - 2);
+}</code></pre>
+  <pre><code>def fib(n):                             # Python
+    if n &lt;= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)</code></pre>
+  <p>The number of calls for fib(n) is 2·fib(n+1) − 1. For fib(5) that is 15 calls; for <strong>fib(30) it is 2,692,537 calls</strong>, all to compute one number. Strictly the growth is about 1.618ⁿ (the golden ratio), which is O(2ⁿ) as an upper bound. The fix is to stop recomputing: remember results (memoization) or build up from the bottom.</p>
+  <pre><code>long fib_fast(int n) {                  // C: O(n) time, O(1) space
+    long a = 0, b = 1;
+    for (int i = 0; i &lt; n; i++) {
+        long next = a + b;
+        a = b;
+        b = next;
+    }
+    return a;
+}</code></pre>
+  <pre><code>from functools import lru_cache
+
+@lru_cache(maxsize=None)                # Python: memoized, O(n) time and space
+def fib(n):
+    return n if n &lt;= 1 else fib(n - 1) + fib(n - 2)</code></pre>
+  <p>The same function drops from exponential to linear time. Chapter 10 (Dynamic Programming) turns this trick into a general method.</p>
+
+  <h3>Summary table</h3>
+  <table>
+    <tr><th>Class</th><th>Name</th><th>Typical source</th><th>Doubling n does…</th></tr>
+    <tr><td>O(1)</td><td>Constant</td><td>Array index, push onto a stack</td><td>nothing</td></tr>
+    <tr><td>O(log n)</td><td>Logarithmic</td><td>Binary search, balanced tree lookup</td><td>adds one step</td></tr>
+    <tr><td>O(n)</td><td>Linear</td><td>One pass over the data</td><td>doubles the cost</td></tr>
+    <tr><td>O(n log n)</td><td>Linearithmic</td><td>Merge sort, heap sort</td><td>slightly more than doubles</td></tr>
+    <tr><td>O(n²)</td><td>Quadratic</td><td>Nested loops over the same data</td><td>quadruples the cost</td></tr>
+    <tr><td>O(2ⁿ)</td><td>Exponential</td><td>Naive recursion with overlap, trying all subsets</td><td>squares the cost</td></tr>
+  </table>
+
+</section>
+
+<section class="sec" id="space-amortized">
+  <span class="sec-eyebrow">Section 1.5</span>
+  <h2 class="sec-title">Space complexity, the stack, and amortized cost</h2>
+
+  <h3>Space complexity</h3>
+  <p>Space complexity counts the <em>extra</em> memory an algorithm needs beyond its input, again as a function of n. The two versions of Fibonacci differ in time and in space: <code>fib_fast</code> uses three variables however large n is (O(1) space), while memoized Fibonacci stores n results (O(n) space). An algorithm that works <strong>in place</strong>, modifying the input array without a second copy, has O(1) extra space; one that builds a full copy has O(n).</p>
+  <table>
+    <tr><th>Example</th><th>Time</th><th>Extra space</th></tr>
+    <tr><td>Reverse an array in place by swapping ends</td><td>O(n)</td><td>O(1)</td></tr>
+    <tr><td>Reverse an array by copying into a new one</td><td>O(n)</td><td>O(n)</td></tr>
+    <tr><td>Iterative Fibonacci</td><td>O(n)</td><td>O(1)</td></tr>
+    <tr><td>Memoized Fibonacci</td><td>O(n)</td><td>O(n)</td></tr>
+  </table>
+
+  <h3>The hidden cost: recursion uses stack memory</h3>
+  <p>Each active function call occupies a stack frame (return address, saved registers, local variables). A recursion that goes n levels deep therefore uses O(n) stack space even if it allocates nothing explicitly. The frame size is typically a few tens of bytes, though it varies with compiler and chip. On a laptop with megabytes of stack that is irrelevant; on a microcontroller with a stack of a couple of kilobytes, a recursion a few hundred levels deep can overflow it and corrupt memory silently, with no error message. This is why embedded coding standards often forbid recursion outright, and why iterative versions of algorithms matter in this course.</p>
+
+  <h3>Amortized analysis: the cost of an average operation over a sequence</h3>
+  <p>Some operations are usually cheap but occasionally expensive. The standard example is appending to a growable array. When the array is full, a new one of double the size is allocated and every element is copied across.</p>
+  <pre><code>typedef struct { int *data; int len, cap; } IntVec;
+
+int vec_push(IntVec *v, int x) {
+    if (v-&gt;len == v-&gt;cap) {                       // full: grow
+        int new_cap = v-&gt;cap ? v-&gt;cap * 2 : 1;
+        int *p = realloc(v-&gt;data, new_cap * sizeof *p);
+        if (!p) return -1;                          // allocation failed
+        v-&gt;data = p;
+        v-&gt;cap = new_cap;
+    }
+    v-&gt;data[v-&gt;len++] = x;
+    return 0;
+}</code></pre>
+  <p>A single push can cost O(n) when it triggers a copy, so is push O(n)? In the worst single case, yes; but the expensive copies are rare and the capacity doubles each time. Appending n items from capacity 1 copies 1 + 2 + 4 + … + n/2 elements in total, which is less than n. So the total work for n appends is under 2n, and the <strong>amortized cost per append is O(1)</strong>.</p>
+  <pre><code>Appending 1,000 items, starting from capacity 1:
+resizes copy 1, 2, 4, 8, 16, 32, 64, 128, 256, 512 elements
+total copies = 1,023   →   about 1.02 copies per append</code></pre>
+  <p>Python's <code>list.append</code> is the same idea: a growable array with amortized O(1) appends. Note the contrast with real-time work: amortized O(1) guarantees the <em>average</em>, not that no single call is slow. A control loop with a hard deadline cannot tolerate an occasional O(n) pause, which is why embedded code usually pre-allocates a fixed-size buffer instead of growing one.</p>
+
+  <div class="box why">
+    <span class="box-label">Preview: the ring buffer from Serial Protocols</span>
+    <p style="margin:0;">A UART driver's receive buffer is a fixed-size array used as a ring, giving O(1) worst-case insertion and removal and no allocation at all. It trades flexibility (it can overflow) for a guaranteed constant cost. Chapter 4 builds exactly this structure.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="in-practice">
+  <span class="sec-eyebrow">Section 1.6</span>
+  <h2 class="sec-title">Measuring in practice, and where Big-O misleads</h2>
+
+  <p>Theory tells you how an algorithm scales; measurement tells you what it costs on your hardware. Use both.</p>
+  <pre><code>#include &lt;stdio.h&gt;
+#include &lt;time.h&gt;
+
+clock_t start = clock();
+run_the_algorithm(data, n);
+clock_t end = clock();
+printf("%.3f ms\n", 1000.0 * (end - start) / CLOCKS_PER_SEC);</code></pre>
+  <pre><code>import timeit
+t = timeit.timeit(lambda: linear_search(data, -1), number=100)
+print(f"{t / 100 * 1000:.3f} ms per call")</code></pre>
+  <p>To check the growth rate empirically, time the algorithm at n, 2n, 4n, and 8n. For O(n) the time roughly doubles each step; for O(n²) it roughly quadruples; for O(log n) it barely moves. On a microcontroller use a hardware timer (such as <code>micros()</code> on Arduino-style cores) instead of <code>clock()</code>.</p>
+
+  <h3>Four ways the textbook answer and reality disagree</h3>
+  <table>
+    <tr><th>Effect</th><th>What happens</th></tr>
+    <tr><td>Constant factors</td><td>A well-written O(n) loop can beat a clumsy O(log n) routine until n is large; Big-O ignores the multiplier but you pay it.</td></tr>
+    <tr><td>Small n</td><td>For n = 20, a simple linear scan is usually faster than binary search plus the work of keeping the array sorted. Simplicity wins at small scale.</td></tr>
+    <tr><td>Memory access pattern</td><td>On processors with caches, scanning a contiguous array is far cheaper per element than following pointers through scattered memory, so array-based O(n) can beat pointer-based O(log n) well past toy sizes.</td></tr>
+    <tr><td>Worst case versus typical case</td><td>An algorithm with a bad worst case may be excellent on realistic data, and the reverse. Know which your application needs.</td></tr>
+  </table>
+
+  <div class="box what">
+    <span class="box-label">The practical rule</span>
+    <p style="margin:0;">Choose by Big-O when n can grow large or is unbounded. When n is small and known (a lookup table of 50 entries, a menu of 8 items), choose the simplest correct code and do not pay in complexity for scalability you will never use. Premature optimization is cost without benefit; ignoring growth is the opposite mistake. The skill is knowing which regime you are in.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="worked-problem-dsa1">
+  <span class="sec-eyebrow">Section 1.7</span>
+  <h2 class="sec-title">Worked problem — analyzing code, then making a design decision</h2>
+
+  <div class="box trace">
+    <span class="box-label">Problem</span>
+    <p>(a) Give the time complexity of each snippet, and the exact number of inner-body executions for the stated n. (b) A device stores a table of 50 sensor calibration entries, looked up 1,000 times per second by an ID. Compare linear search with binary search and decide which to use.</p>
+    <pre><code>Snippet A:                          Snippet B:
+for (i = 0; i &lt; n; i++)             for (i = 1; i &lt; n; i *= 2)
+    for (j = i + 1; j &lt; n; j++)         work();
+        work();
+(n = 1000)                          (n = 1024)
+
+Snippet C:
+for (i = 0; i &lt; n; i++)
+    for (j = 1; j &lt; n; j *= 2)
+        work();
+(n = 1024)</code></pre>
+    <pre><code>(a) Snippet A: the inner loop runs (n−1) + (n−2) + ... + 0 times
+        = n(n−1)/2. For n = 1000: 1000 × 999 / 2 = 499,500 executions.
+        The n²/2 term dominates → O(n²).
+
+    Snippet B: i takes the values 1, 2, 4, ..., 512 (the loop stops when
+        i reaches 1024). That is 10 values, so 10 executions.
+        i doubles each time, so the count is log₂ n → O(log n).
+
+    Snippet C: the inner loop runs log₂ n = 10 times for each of the
+        n = 1024 outer iterations: 1024 × 10 = 10,240 executions.
+        Nested loops multiply → O(n log n).
+
+(b) Linear search: at most 50 comparisons per lookup. At 1,000 lookups
+        per second that is at most 50,000 comparisons per second, a trivial
+        load even for a slow microcontroller.
+    Binary search: at most ⌊log₂ 50⌋ + 1 = 5 + 1 = 6 comparisons per lookup,
+        so 6,000 per second, but it requires the table to be kept sorted by
+        ID and the code is a little more involved.
+    Decision: the saving (44 comparisons per lookup) is real but irrelevant
+        at this scale. If the table is already sorted or rarely changes,
+        binary search is free to adopt; if entries are added or removed
+        often, or the table is unsorted, linear search is simpler and less
+        error-prone. Either choice meets any plausible deadline. Revisit
+        the decision if the table grows into the thousands.</code></pre>
+    <p><strong>What to take away:</strong> part (a) is the mechanical skill of this chapter: read loops as counts, and let the dominating term decide the class. Part (b) is the judgment: Big-O tells you which algorithm scales better, but the engineering decision also weighs how large n really is, how the data is maintained, and how much complexity the code can afford.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="recap-dsa1">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>Algorithms are compared by counting basic operations as a function of input size n (time complexity) and extra memory used (space complexity), not by stopwatch time, which depends on the machine and the particular input.</li>
+    <li>Big-O is defined precisely: f(n) = O(g(n)) if there are constants c and n₀ with f(n) ≤ c·g(n) for all n ≥ n₀. In practice, drop constant factors and lower-order terms; sequential steps add, nested steps multiply. Ω is a lower bound and Θ a tight bound; "the complexity" normally means the worst case.</li>
+    <li>The classes to recognize on sight: O(1) array index; O(log n) halving, as in binary search (20 comparisons for a million items); O(n) a single pass; O(n log n) efficient sorting; O(n²) nested loops; O(2ⁿ) naive overlapping recursion (fib(30) makes 2,692,537 calls).</li>
+    <li>Space matters as much as time on a microcontroller: in-place algorithms use O(1) extra space, and recursion silently costs O(depth) stack, which is why embedded code often avoids it.</li>
+    <li>Amortized analysis averages an occasionally expensive operation over a whole sequence: doubling a growable array makes append O(1) amortized (about 1.02 copies per append for 1,000 items), but a hard real-time deadline still needs a worst-case guarantee, such as a pre-allocated ring buffer.</li>
+    <li>Big-O describes scaling, not speed at a given n. Constant factors, small n, and memory access patterns can reverse the textbook ranking, so use Big-O to choose when n is large or unbounded, and prefer the simplest correct code when n is small and fixed.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-dsa1">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>Show that 3n² + 20n + 500 is O(n²) by giving explicit constants c and n₀ that satisfy the definition.</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Choose c = 4 and n₀ = 35. We need 3n² + 20n + 500 ≤ 4n², which simplifies to n² ≥ 20n + 500. At n = 35: 1,225 ≥ 700 + 500 = 1,200, so it holds (and at n = 34 it fails, which is why n₀ is 35). For larger n the difference n² − 20n − 500 only grows, so the inequality holds for every n ≥ 35. Other valid pairs exist (for example a larger c with a smaller n₀); the definition only requires that some pair works.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>A function first runs a loop of n iterations, then separately runs a pair of nested loops of n iterations each. What is its time complexity, and how would the answer change if the nested loops were instead inside the first loop?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Sequential steps add: O(n) + O(n²) = O(n²), because the lower-order term is dropped. If the nested loops were inside the first loop, the costs multiply: n × n² = O(n³). The distinction is exactly the rule from Section 1.3: sequential adds, nested multiplies.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>A growable array starts at capacity 1 and doubles whenever it is full. How many element copies happen in total while appending 1,000 items, and what does that say about the cost per append?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Resizes happen when the array holds 1, 2, 4, 8, 16, 32, 64, 128, 256, and 512 elements, copying that many each time: 1 + 2 + 4 + … + 512 = 1,023 copies. Over 1,000 appends that is about 1.02 copies per append, so the amortized cost per append is O(1), even though one particular append (the 513th) copies 512 elements at once. The caveat for embedded work is that the worst single call is still O(n), which a hard real-time loop may not tolerate.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 4</span>
+    <p>Why can a simple O(n) scan through a small array of 20 elements beat an O(log n) search structure in practice?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Big-O ignores constant factors and only describes scaling for large n. At n = 20 the log₂ n advantage is a handful of comparisons at most, while the more elaborate structure adds fixed overhead: extra code, maintaining sort order or pointers, and, on processors with a cache, scattered memory accesses that cost far more per step than reading a contiguous array. The simple scan has almost no overhead and reads memory in order, so its larger step count costs little. The crossover point depends on the hardware, which is why measuring matters when n is small.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 5</span>
+    <p>Why does naive recursive fib(30) make about 2.7 million calls, and what are two ways to bring the cost down to linear time?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Each call to fib(n) spawns two more calls, and the two sub-trees recompute the same values repeatedly (fib(28) is computed from both fib(30) and fib(29), and so on), so the number of calls grows exponentially: 2·fib(31) − 1 = 2,692,537 for n = 30. Two fixes: memoization (store each result the first time it is computed, so each of the 31 values is computed once, giving O(n) time and O(n) space), or an iterative loop that keeps only the previous two values (O(n) time and O(1) space), which is also the better choice on a memory-limited microcontroller since it avoids recursion's stack usage.</div>
+  </div>
+
+</section>
+
+<div class="chapter-nav">
+  <div class="disabled"><span class="lbl">Previous</span>— start of DSA course —</div>
+  <a class="next-wrap" href="dsa-02-arrays-strings.html"><span class="lbl">Next chapter</span>2. Arrays &amp; Strings</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

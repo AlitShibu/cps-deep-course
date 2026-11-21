@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C Ch.5 — Arrays & Strings — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">C Programming / Ch. 5: Arrays & Strings</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// C Programming Fundamentals — Chapter 5 of 13</span>
+  <h1>Arrays &amp; Strings</h1>
+  <p>Java's arrays are objects with built-in bounds checking and a .length property; Java's Strings are a rich, immutable class. C's arrays are raw, fixed-size blocks of contiguous memory with zero built-in protection, and C strings are just arrays of characters with one special convention holding them together. This chapter is where "C trusts you completely" starts to feel real.</p>
+  <div class="meta"><span>Chapter 5 of 13</span><span>Standard C</span><span>Builds on Chapters 1-4</span></div>
+</section>
+<section class="sec" id="array-basics">
+  <span class="sec-eyebrow">Section 5.1</span>
+  <h2 class="sec-title">Arrays — fixed-size, contiguous, unprotected</h2>
+
+  <h3>Declaring and using an array</h3>
+  <pre><code>int scores[5];             // declares an array of 5 ints -- values are UNINITIALIZED (Ch.2)
+int grades[5] = {90, 85, 77, 92, 68};   // declared and initialized together
+
+scores[0] = 100;            // assign the first element (index 0!)
+printf("%d\n", grades[2]);  // 77</code></pre>
+  <p>Indexing starts at <strong>0</strong>, exactly like Java. An array of 5 elements has valid indices 0 through 4 — there is no index 5.</p>
+
+  <h3>What an array actually is in memory</h3>
+  <p>Unlike Java, where an array is an object living on the heap with metadata (including its length) attached, a C array is simply <strong>a fixed block of contiguous memory</strong>, large enough to hold all its elements back-to-back, with absolutely no metadata stored alongside it — no length, no bounds information, nothing.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 560 120" xmlns="http://www.w3.org/2000/svg">
+      <g font-family="Space Mono" font-size="11" fill="var(--text)">
+        <rect x="20" y="30" width="90" height="50" fill="var(--surface-2)" stroke="var(--signal)"/><text x="65" y="60" text-anchor="middle">90</text>
+        <rect x="110" y="30" width="90" height="50" fill="var(--surface-2)" stroke="var(--signal)"/><text x="155" y="60" text-anchor="middle">85</text>
+        <rect x="200" y="30" width="90" height="50" fill="var(--surface-2)" stroke="var(--signal)"/><text x="245" y="60" text-anchor="middle">77</text>
+        <rect x="290" y="30" width="90" height="50" fill="var(--surface-2)" stroke="var(--signal)"/><text x="335" y="60" text-anchor="middle">92</text>
+        <rect x="380" y="30" width="90" height="50" fill="var(--surface-2)" stroke="var(--signal)"/><text x="425" y="60" text-anchor="middle">68</text>
+        <text x="65" y="100" fill="var(--muted)" font-size="9">[0]</text>
+        <text x="155" y="100" fill="var(--muted)" font-size="9">[1]</text>
+        <text x="245" y="100" fill="var(--muted)" font-size="9">[2]</text>
+        <text x="335" y="100" fill="var(--muted)" font-size="9">[3]</text>
+        <text x="425" y="100" fill="var(--muted)" font-size="9">[4]</text>
+        <text x="490" y="60" fill="var(--danger)" font-size="10">no length stored anywhere!</text>
+      </g>
+    </svg>
+    <div class="diagram-cap">A C array is exactly this block, nothing more — the language itself has no idea how many elements it has once you're past its declaration.</div>
+  </div>
+
+  <div class="box pitfall">
+    <span class="box-label">The consequence — out-of-bounds access is not caught</span>
+    <p style="margin:0;">In Java, <code>grades[10]</code> on a 5-element array throws <code>ArrayIndexOutOfBoundsException</code> — always, reliably. In C, <code>grades[10]</code> compiles and runs, silently reading (or, worse, writing to) whatever memory happens to sit past the array's end — memory that might belong to a completely different variable. This is called <strong>undefined behavior</strong>: the language makes no guarantee about what happens, and it might appear to "work" for a while before crashing unpredictably or corrupting unrelated data. Because there's no built-in length, <strong>you</strong> are responsible for tracking an array's size (often via a separate variable or a <code>#define</code> constant) and never indexing past it — the compiler will not help you.</p>
+  </div>
+
+  <h4>sizeof and array length</h4>
+  <pre><code>int arr[10];
+int length = sizeof(arr) / sizeof(arr[0]);   // 10 -- total bytes / bytes-per-element
+printf("%d\n", length);</code></pre>
+  <p>This is the standard idiom for computing an array's length <em>within the same scope where it was declared</em> — it stops working correctly once an array is passed into a function (Section 5.2 explains exactly why).</p>
+</section>
+<section class="sec" id="arrays-and-functions">
+  <span class="sec-eyebrow">Section 5.2</span>
+  <h2 class="sec-title">Arrays and functions — the decay you need to know about</h2>
+
+  <p>Pass an array to a function, and something subtle happens: the array <strong>decays into a pointer</strong> to its first element — the function receives only an address, not the array itself, and critically, <strong>not its size</strong>.</p>
+
+  <pre><code>void print_array(int arr[], int length) {   // 'int arr[]' is really 'int *arr' underneath
+    printf("Inside function, sizeof(arr) = %zu\n", sizeof(arr));   // prints 8 (a pointer's size!)
+    for (int i = 0; i < length; i++) {
+        printf("%d ", arr[i]);
+    }
+    printf("\n");
+}
+
+int main(void) {
+    int nums[5] = {1,2,3,4,5};
+    printf("In main, sizeof(nums) = %zu\n", sizeof(nums));   // 20 (5 ints x 4 bytes)
+    print_array(nums, 5);
+    return 0;
+}</code></pre>
+
+  <div class="box pitfall">
+    <span class="box-label">Why this is a genuinely common source of bugs</span>
+    <p style="margin:0;">Section 5.1's <code>sizeof(arr)/sizeof(arr[0])</code> trick to compute array length works perfectly inside <code>main</code>, where <code>nums</code> is a real, full-sized array. But inside <code>print_array</code>, <code>arr</code> is just a pointer (8 bytes on most modern systems) — <code>sizeof(arr)</code> returns 8, not 20, and computing "length" this way inside the function would silently give a wrong, tiny answer. <strong>This is exactly why <code>print_array</code> takes a separate <code>length</code> parameter</strong> — once an array decays to a pointer at a function boundary, the size information is genuinely gone, and there is no way to recover it from the pointer alone. Every C function that operates on an array you didn't just declare locally needs its size passed in explicitly, as a rule with no exceptions.</p>
+  </div>
+
+  <div class="box why">
+    <span class="box-label">A first, gentle preview of Chapter 6</span>
+    <p style="margin:0;">"Arrays decay into pointers" is your first real hint of how deeply connected arrays and pointers are in C — deep enough that Chapter 6 revisits this exact fact and builds on it directly. For now, the practical takeaway is simple: <strong>always pass an array's length alongside the array itself</strong> to any function that needs to work with it.</p>
+  </div>
+</section>
+
+<section class="sec" id="strings">
+  <span class="sec-eyebrow">Section 5.3</span>
+  <h2 class="sec-title">Strings — just arrays of characters, with a convention</h2>
+
+  <h3>The core idea: null-termination</h3>
+  <p>C has no dedicated string type. A <strong>C string</strong> is simply an array of <code>char</code>, with one crucial convention: it ends with a special <strong>null terminator</strong> character, written <code>'\0'</code> (the character with value 0 — not the digit '0', not a space, a genuinely distinct character), marking where the actual text stops.</p>
+
+  <pre><code>char greeting[6] = {'H', 'e', 'l', 'l', 'o', '\0'};   // explicit, verbose form
+char greeting2[] = "Hello";                             // equivalent, and idiomatic --
+                                                          // the compiler adds '\0' automatically</code></pre>
+
+  <div class="diagram">
+    <svg viewBox="0 0 500 100" xmlns="http://www.w3.org/2000/svg">
+      <g font-family="Space Mono" font-size="12" fill="var(--text)">
+        <rect x="20" y="20" width="60" height="45" fill="var(--surface-2)" stroke="var(--signal)"/><text x="50" y="48" text-anchor="middle">'H'</text>
+        <rect x="80" y="20" width="60" height="45" fill="var(--surface-2)" stroke="var(--signal)"/><text x="110" y="48" text-anchor="middle">'e'</text>
+        <rect x="140" y="20" width="60" height="45" fill="var(--surface-2)" stroke="var(--signal)"/><text x="170" y="48" text-anchor="middle">'l'</text>
+        <rect x="200" y="20" width="60" height="45" fill="var(--surface-2)" stroke="var(--signal)"/><text x="230" y="48" text-anchor="middle">'l'</text>
+        <rect x="260" y="20" width="60" height="45" fill="var(--surface-2)" stroke="var(--signal)"/><text x="290" y="48" text-anchor="middle">'o'</text>
+        <rect x="320" y="20" width="60" height="45" fill="var(--surface-2)" stroke="var(--danger)"/><text x="350" y="48" text-anchor="middle" fill="var(--danger)">'\0'</text>
+        <text x="350" y="85" text-anchor="middle" fill="var(--danger)" font-size="10">the terminator -- marks the end</text>
+      </g>
+    </svg>
+    <div class="diagram-cap">"Hello" is 6 bytes in memory, not 5 — the null terminator is part of the string, always.</div>
+  </div>
+
+  <div class="box why">
+    <span class="box-label">Why this matters so much</span>
+    <p style="margin:0;">Every string-handling function in the standard library (<code>printf</code>'s <code>%s</code>, <code>strlen</code>, <code>strcpy</code>, and so on) works by reading characters one at a time <strong>until it finds <code>'\0'</code></strong> — that's genuinely the only way it knows where the string ends, since (per Section 5.1) a C array carries no length metadata of its own. If a "string" is missing its null terminator — through a bug, or a manually-built character array that forgot it — these functions will keep reading past the intended end, into whatever memory happens to follow, until they eventually (by luck) hit a zero byte or crash. A missing null terminator is one of the most classic C bugs there is.</p>
+  </div>
+
+  <h3>Common string functions (from &lt;string.h&gt;)</h3>
+  <pre><code>#include &lt;string.h&gt;
+
+char s1[20] = "Hello";
+char s2[] = " World";
+
+printf("%zu\n", strlen(s1));      // 5 -- length NOT including the '\0'
+strcat(s1, s2);                    // appends s2 onto the end of s1 (s1 must have room!)
+printf("%s\n", s1);                 // "Hello World"
+
+char s3[20];
+strcpy(s3, "Copy me");              // copies a string into s3 (s3 must have room!)
+
+if (strcmp(s1, s3) == 0) {          // strcmp returns 0 when strings are EQUAL (not true/false!)
+    printf("equal\n");
+} else {
+    printf("not equal\n");
+}</code></pre>
+
+  <div class="box pitfall">
+    <span class="box-label">Two sharp edges, both extremely common in real bugs</span>
+    <p style="margin:0;"><strong>1. Buffer overflow:</strong> <code>strcat</code> and <code>strcpy</code> do not check whether the destination array is actually big enough — writing past a fixed-size array's end is undefined behavior (Section 5.1), and with strings, this specific mistake is common enough to be a notorious, decades-old category of security vulnerability. Prefer the safer <code>strncat</code>/<code>strncpy</code> variants, which take an explicit maximum length, whenever the input size isn't tightly controlled.</p>
+    <p style="margin:12px 0 0;"><strong>2. strcmp's return value is not a boolean the way you'd expect:</strong> it returns <code>0</code> when the strings are equal (not <code>1</code>/true as many beginners assume), and a negative or positive number indicating alphabetical ordering otherwise. Writing <code>if (strcmp(a,b))</code> — intending "if equal" — actually checks the opposite, since a non-zero result (meaning "not equal") is what counts as true in an <code>if</code> (Chapter 3, Section 3.1). Always write <code>if (strcmp(a,b) == 0)</code> explicitly.</p>
+  </div>
+</section>
+<section class="sec" id="multidim-arrays">
+  <span class="sec-eyebrow">Section 5.4</span>
+  <h2 class="sec-title">Multi-dimensional arrays</h2>
+
+  <pre><code>int grid[3][4];   // 3 rows, 4 columns -- 12 ints total, still one contiguous block
+
+grid[1][2] = 99;   // row 1, column 2
+
+int matrix[2][3] = {
+    {1, 2, 3},
+    {4, 5, 6}
+};</code></pre>
+  <p>Despite the double-bracket syntax, a 2D array in C is still just one single contiguous block of memory underneath — <code>grid[3][4]</code> is really 12 ints laid out back-to-back in <strong>row-major order</strong> (the entire first row, then the entire second row, and so on). This matters directly for your CPS/robotics work: a small 2D transformation matrix (recall the Linear Algebra roadmap topic) or a sensor's grid-shaped data (like a low-resolution depth camera frame) is often represented exactly this way in embedded C.</p>
+
+  <div class="box trace">
+    <span class="box-label">Worked problem</span>
+    <p><strong>Problem:</strong> Given a 2D array representing sensor readings from a 3x3 grid, find the average reading.</p>
+    <pre><code>#include &lt;stdio.h&gt;
+
+int main(void) {
+    float readings[3][3] = {
+        {21.5, 22.0, 21.8},
+        {23.1, 22.4, 21.9},
+        {22.7, 23.0, 22.2}
+    };
+
+    float sum = 0;
+    int count = 0;
+    for (int row = 0; row < 3; row++) {
+        for (int col = 0; col < 3; col++) {
+            sum += readings[row][col];
+            count++;
+        }
+    }
+    printf("Average: %.2f\n", sum / count);   // Average: 22.29
+    return 0;
+}</code></pre>
+    <p>Nested loops over a 2D array — the outer loop walks rows, the inner walks columns within each row — is the standard, idiomatic pattern, and it directly mirrors how the data is actually laid out in memory (row-major order), which also makes it the most cache-efficient traversal order on real hardware.</p>
+  </div>
+</section>
+
+<section class="sec" id="recap-c5">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>A C array is a <strong>fixed-size, contiguous block of memory</strong> with no built-in length metadata — unlike Java, out-of-bounds access is not caught and produces undefined behavior.</li>
+    <li>Passing an array to a function makes it <strong>decay into a pointer</strong> to its first element, losing size information — always pass the length as a separate parameter.</li>
+    <li>A C string is just a <code>char</code> array with a <strong>null terminator</strong> (<code>'\0'</code>) marking its end — every standard string function relies on finding this terminator to know where a string stops.</li>
+    <li><code>strcat</code>/<code>strcpy</code> don't check destination buffer size (a classic overflow risk); <code>strcmp</code> returns <strong>0 for equal</strong>, not a boolean true — both are common, sharp-edged pitfalls.</li>
+    <li>Multi-dimensional arrays are still one contiguous block underneath, laid out in <strong>row-major order</strong> — relevant directly for matrix and grid-shaped sensor data in later roadmap topics.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-c5">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>Why does a C function that receives an array parameter also need a separate length parameter?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Because the array decays into a pointer at the function boundary, losing its size information entirely — sizeof on the parameter returns the pointer's size, not the original array's size, so there's no way to recover the length from inside the function without it being passed explicitly.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>How many bytes does the string "Cat" actually occupy in memory, and why?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">4 bytes — 'C', 'a', 't', and the null terminator '\0', which is required and part of the string, not extra.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>What does strcmp(a, b) == 0 mean, and why is checking strcmp(a,b) alone (without ==0) a common bug?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">strcmp returns 0 when the two strings are equal. Checking "if (strcmp(a,b))" alone treats any non-zero result as true — which is exactly the "not equal" case — so it silently does the opposite of what a beginner usually intends.</div>
+  </div>
+</section>
+
+<div class="chapter-nav">
+  <a href="c-04-functions.html"><span class="lbl">Previous</span>← 4. Functions & Program Structure</a>
+  <a href="c-06-pointers-1.html" class="next-wrap"><span class="lbl">Next chapter</span>6. Pointers I — Fundamentals →</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

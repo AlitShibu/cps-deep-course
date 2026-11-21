@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serial Protocols Ch.3 — SPI — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">Serial Protocols / Ch. 3: SPI</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// Serial Protocols — Chapter 3 of 7</span>
+  <h1>SPI</h1>
+  <p>SPI (Serial Peripheral Interface) is what you reach for when you need speed: it is the fastest of the four protocols in this course, routinely running at tens of megahertz, because it trades away nearly everything UART and I2C spend effort on. There is no framing to compute, no addressing scheme, no clock-tolerance budget to worry about, because the clock is right there on its own wire. This chapter covers the four-wire bus, the notorious clock-polarity/phase modes that trip up almost everyone the first time, how one master manages several slaves, and the full-duplex shift-register mechanism that makes SPI conceptually different from UART and I2C.</p>
+  <div class="meta"><span>Chapter 3 of 7</span><span>Builds on: Ch. 1 (synchronous communication), Ch. 2 (UART, for contrast)</span><span>Leads into: I2C (Ch. 4) — the other synchronous protocol, optimized differently</span></div>
+</section>
+
+<section class="sec" id="spi-bus">
+  <span class="sec-eyebrow">Section 3.1</span>
+  <h2 class="sec-title">The four-wire bus and full-duplex shifting</h2>
+
+  <p>SPI uses four signals, and unlike UART's TX/RX, all four are shared by every device on the bus except one:</p>
+  <table>
+    <tr><th>Signal</th><th>Full name</th><th>Direction</th><th>Shared across devices?</th></tr>
+    <tr><td>SCLK (or SCK)</td><td>Serial Clock</td><td>Master → all slaves</td><td>Yes — one clock line for everyone</td></tr>
+    <tr><td>MOSI</td><td>Master Out, Slave In</td><td>Master → all slaves</td><td>Yes — one data line for everyone</td></tr>
+    <tr><td>MISO</td><td>Master In, Slave Out</td><td>Slaves → master</td><td>Yes — one data line for everyone</td></tr>
+    <tr><td>CS (or SS)</td><td>Chip Select (Slave Select)</td><td>Master → one specific slave</td><td>No — one dedicated wire PER slave</td></tr>
+  </table>
+  <p>Newer documentation (including the SPI standard's own current terminology) often uses <strong>SDO/SDI</strong> (Serial Data Out/In, from each device's own point of view) or <strong>Controller/Peripheral</strong> language instead of Master/Slave and MOSI/MISO, to move away from the older terms. Both naming schemes describe exactly the same four wires and the same electrical behavior — this course uses the historical names because they are still what you will see on the overwhelming majority of existing datasheets and ESP32/Arduino library documentation, but expect to see the newer names increasingly often.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 560 190" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arrSPI" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text)"/></marker></defs>
+      <rect x="30" y="70" width="110" height="50" fill="none" stroke="var(--text)" stroke-width="1.4"/>
+      <text x="85" y="99" text-anchor="middle" font-family="Space Mono" font-size="11" fill="var(--text)">MASTER</text>
+      <rect x="400" y="20" width="120" height="45" fill="none" stroke="var(--text)" stroke-width="1.4"/>
+      <text x="460" y="47" text-anchor="middle" font-family="Space Mono" font-size="10.5" fill="var(--text)">Slave 1</text>
+      <rect x="400" y="90" width="120" height="45" fill="none" stroke="var(--text)" stroke-width="1.4"/>
+      <text x="460" y="117" text-anchor="middle" font-family="Space Mono" font-size="10.5" fill="var(--text)">Slave 2</text>
+      <rect x="400" y="160" width="120" height="45" fill="none" stroke="var(--text)" stroke-width="1.4"/>
+      <text x="460" y="187" text-anchor="middle" font-family="Space Mono" font-size="10.5" fill="var(--text)">Slave 3</text>
+      <line x1="140" y1="80" x2="400" y2="42" stroke="var(--signal)" stroke-width="1.3" marker-end="url(#arrSPI)"/>
+      <line x1="140" y1="80" x2="400" y2="112" stroke="var(--signal)" stroke-width="1.3" marker-end="url(#arrSPI)"/>
+      <line x1="140" y1="80" x2="400" y2="182" stroke="var(--signal)" stroke-width="1.3" marker-end="url(#arrSPI)"/>
+      <text x="260" y="55" text-anchor="middle" font-family="Space Mono" font-size="8.5" fill="var(--signal)">SCLK (shared)</text>
+      <line x1="140" y1="92" x2="400" y2="55" stroke="var(--amber)" stroke-width="1.3" marker-end="url(#arrSPI)"/>
+      <line x1="140" y1="92" x2="400" y2="125" stroke="var(--amber)" stroke-width="1.3" marker-end="url(#arrSPI)"/>
+      <line x1="140" y1="92" x2="400" y2="195" stroke="var(--amber)" stroke-width="1.3" marker-end="url(#arrSPI)"/>
+      <text x="260" y="140" text-anchor="middle" font-family="Space Mono" font-size="8.5" fill="var(--amber)">MOSI (shared)</text>
+      <line x1="400" y1="30" x2="140" y2="105" stroke="var(--green)" stroke-width="1.3" marker-end="url(#arrSPI)"/>
+      <text x="300" y="178" text-anchor="middle" font-family="Space Mono" font-size="8.5" fill="var(--green)">MISO (shared, all slaves)</text>
+      <line x1="140" y1="110" x2="400" y2="30" stroke="var(--red)" stroke-width="1.1" stroke-dasharray="3,2"/>
+      <line x1="140" y1="115" x2="400" y2="100" stroke="var(--red)" stroke-width="1.1" stroke-dasharray="3,2"/>
+      <line x1="140" y1="120" x2="400" y2="170" stroke="var(--red)" stroke-width="1.1" stroke-dasharray="3,2"/>
+      <text x="85" y="150" text-anchor="middle" font-family="Space Mono" font-size="8.5" fill="var(--red)">3 dedicated CS lines →</text>
+    </svg>
+    <div class="diagram-cap">One master, three slaves: SCLK, MOSI, and MISO are shared by all devices, but each slave gets its own dedicated CS line (dashed) from the master.</div>
+  </div>
+
+  <h3>Full-duplex: SPI sends and receives at the same time</h3>
+  <p>Unlike UART (which can be full-duplex too, but as two independent one-directional streams) SPI's full-duplex operation happens on <em>every single clock edge</em>: master and slave are conceptually two shift registers wired into a ring. Each clock pulse shifts one bit out of the master on MOSI and simultaneously shifts one bit out of the slave on MISO — both directions happen together, driven by the same clock edge, whether or not the data going in either direction is actually meaningful to the receiving side.</p>
+  <pre><code>Master shift register:  [ data to send ]  →  MOSI  →  Slave's shift register (shifts IN)
+Slave shift register:   [ data to send ]  →  MISO  →  Master's shift register (shifts IN)
+                          (both happen on the SAME clock edge)</code></pre>
+
+  <div class="box why">
+    <span class="box-label">Why "sending" always means "receiving" too, in SPI</span>
+    <p style="margin:0;">Because the two shift registers are linked by the same clock, a master that only wants to <em>read</em> from a slave still has to clock out something on MOSI — usually dummy bytes (often 0x00 or 0xFF) — because the slave will not shift its data out on MISO unless the clock is toggling. Likewise, a master that only wants to <em>write</em> to a slave still receives whatever the slave happens to shift back on MISO during that same transfer, even if that data is meaningless and gets discarded. This "you always get something back" behavior is a direct, unavoidable consequence of the shift-register mechanism, not a design choice either side can opt out of mid-transfer.</p>
+  </div>
+
+  <div class="box what">
+    <span class="box-label">No framing bits, no addressing — and why that is fine</span>
+    <p style="margin:0;">SPI has no start bit, no stop bit, and no built-in device-address scheme (contrast this with UART's framing in Chapter 2 and I2C's addressing in Chapter 4). It does not need them: the clock line itself marks exactly when each bit is valid (solving UART's framing problem for free, per Chapter 1's "clock-delimited transfer" row), and the dedicated CS line — not an address transmitted over the data wire — is what tells one specific device "the bits on the wire right now are for you."</p>
+  </div>
+
+</section>
+
+<section class="sec" id="spi-modes">
+  <span class="sec-eyebrow">Section 3.2</span>
+  <h2 class="sec-title">CPOL, CPHA, and the four SPI modes</h2>
+
+  <p>Before any data moves, two independent choices decide exactly how the clock and data lines behave — and both choices must match between master and slave, or every byte will come out corrupted despite perfectly correct wiring.</p>
+
+  <h3>CPOL: clock polarity</h3>
+  <p>CPOL sets the clock's <strong>idle</strong> level — what SCLK does when no transfer is happening.</p>
+  <pre><code>CPOL = 0:  clock idles LOW  (rests at 0, pulses high during the active transfer)
+CPOL = 1:  clock idles HIGH (rests at 1, pulses low during the active transfer)</code></pre>
+
+  <h3>CPHA: clock phase</h3>
+  <p>CPHA sets <strong>which clock edge</strong> data is sampled on relative to when it is shifted out — the sampling edge and the shifting edge are always the two opposite edges of the clock, and CPHA picks which one is which.</p>
+  <pre><code>CPHA = 0:  data is sampled on the FIRST clock edge of each cycle (data must
+           already be stable on the line BEFORE that first edge arrives)
+CPHA = 1:  data is sampled on the SECOND clock edge of each cycle (data
+           changes on the first edge, and is sampled on the second)</code></pre>
+
+  <h3>The four combinations, and their common numbering</h3>
+  <table>
+    <tr><th>Mode</th><th>CPOL</th><th>CPHA</th><th>Clock idle</th><th>Data sampled on</th></tr>
+    <tr><td>Mode 0</td><td>0</td><td>0</td><td>Low</td><td>Rising edge (the clock's first transition each cycle)</td></tr>
+    <tr><td>Mode 1</td><td>0</td><td>1</td><td>Low</td><td>Falling edge (the clock's second transition each cycle)</td></tr>
+    <tr><td>Mode 2</td><td>1</td><td>0</td><td>High</td><td>Falling edge (the first transition each cycle)</td></tr>
+    <tr><td>Mode 3</td><td>1</td><td>1</td><td>High</td><td>Rising edge (the second transition each cycle)</td></tr>
+  </table>
+  <p><strong>Mode 0</strong> is by far the most common default across sensors and displays; when a datasheet does not make a point of specifying otherwise, try Mode 0 first.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 290 125" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20.0,60 L53.3,60 L53.3,20 L136.7,20 L136.7,60 L220.0,60 L220.0,20 L270.0,20" fill="none" stroke="var(--signal)" stroke-width="1.8"/>
+      <text x="20" y="12" text-anchor="start" font-family="Space Mono" font-size="9" fill="var(--text)">SCLK</text>
+    </svg>
+    <div class="diagram-cap">Mode 0 (CPOL=0, CPHA=0): the clock idles low. Two full clock pulses shown.</div>
+  </div>
+
+  <div class="box pitfall">
+    <span class="box-label">Mode mismatch produces garbage that looks like a wiring fault</span>
+    <p style="margin:0;">If master and slave disagree on CPOL/CPHA, the data will be sampled at the wrong instant relative to when it changes — every byte comes out shifted or scrambled, in a way that looks exactly like a loose wire or a bad connection. Before suspecting the physical wiring, always double-check the datasheet's specified SPI mode and confirm it matches what the master's SPI peripheral (or library call) is configured for.</p>
+  </div>
+
+  <h3>In firmware: setting the mode explicitly</h3>
+  <pre><code>#include &lt;SPI.h&gt;
+
+SPISettings settings(1000000, MSBFIRST, SPI_MODE0);  // 1 MHz, MSB first, Mode 0
+
+void setup() {
+    SPI.begin();
+}
+
+void loop() {
+    SPI.beginTransaction(settings);
+    digitalWrite(CS_PIN, LOW);          // select the slave
+    byte received = SPI.transfer(0xA5); // send 0xA5, simultaneously read back a byte
+    digitalWrite(CS_PIN, HIGH);         // deselect
+    SPI.endTransaction();
+}</code></pre>
+  <p>Note that <code>SPI.transfer()</code> both sends and returns a byte in one call — a direct reflection of Section 3.1's full-duplex shift-register mechanism: there is no way to "just send" without also receiving something back on the same call.</p>
+
+</section>
+
+<section class="sec" id="spi-chip-select">
+  <span class="sec-eyebrow">Section 3.3</span>
+  <h2 class="sec-title">Multiple slaves and chip select</h2>
+
+  <p>SPI has no addressing scheme built into its data protocol — instead, exactly one device is "listening" at any given moment, selected entirely by which CS line the master is holding low.</p>
+
+  <h3>The chip-select rule</h3>
+  <pre><code>CS is ACTIVE LOW on essentially all standard SPI devices:
+  CS = HIGH  → the device ignores everything on MOSI/SCLK/MISO (its MISO
+               output is put into a high-impedance / "released" state)
+  CS = LOW   → the device is selected and actively participates in the
+               current transfer</code></pre>
+  <p>To talk to one specific slave among several sharing the same SCLK/MOSI/MISO bus, the master pulls that slave's CS line low, performs the transfer, then raises it high again before selecting a different slave. Only one CS line should ever be low at a time — if two slaves are both selected simultaneously, they will both try to drive MISO at once, and the result on that line is undefined (a bus contention, similar in spirit to two outputs fighting over the same wire).</p>
+
+  <div class="box trace">
+    <span class="box-label">Talking to two slaves in sequence</span>
+    <pre><code>digitalWrite(CS_SENSOR, LOW);
+byte sensor_data = SPI.transfer(0x00);   // read from the sensor
+digitalWrite(CS_SENSOR, HIGH);
+
+digitalWrite(CS_DISPLAY, LOW);
+SPI.transfer(0x01);                       // send a command byte to the display
+SPI.transfer(dataByte);                   // send the data byte
+digitalWrite(CS_DISPLAY, HIGH);</code></pre>
+    <p>Each device's transfer is fully separated by raising its CS line before touching the next one's CS line — this is what prevents the sensor from "hearing" bytes intended for the display and vice versa, even though they share the exact same SCLK, MOSI, and MISO wires.</p>
+  </div>
+
+  <h3>Pin cost as slave count grows</h3>
+  <table>
+    <tr><th>Number of slaves</th><th>Shared wires (SCLK+MOSI+MISO)</th><th>Dedicated CS wires</th><th>Total pins on the master</th></tr>
+    <tr><td>1</td><td>3</td><td>1</td><td>4</td></tr>
+    <tr><td>3</td><td>3</td><td>3</td><td>6</td></tr>
+    <tr><td>8</td><td>3</td><td>8</td><td>11</td></tr>
+  </table>
+  <p>This is SPI's central trade-off, already hinted at in Chapter 1: it buys very high speed and simplicity per transfer, but it pays for that with a dedicated pin for every single device on the bus — the opposite of I2C's approach in Chapter 4, which spends more time-per-transfer overhead in exchange for needing only two shared wires no matter how many devices are attached.</p>
+
+  <div class="box what">
+    <span class="box-label">Daisy-chaining: an alternative to per-device CS lines</span>
+    <p style="margin:0;">Some SPI devices (many shift-register-based LED drivers and some ADCs) support <strong>daisy-chaining</strong>: each device's data output feeds directly into the next device's data input, all sharing one CS line, and the master shifts out enough total bits for every device in the chain, with each device's bits shifting through to the next. This avoids the per-device CS pin cost entirely, at the cost of only working with devices specifically designed to support it, and of every device in the chain needing to be written to (or read from) together as one long transfer.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="spi-speed">
+  <span class="sec-eyebrow">Section 3.4</span>
+  <h2 class="sec-title">Speed, physical limits, and bit order</h2>
+
+  <p>Because SPI has no clock-tolerance budget to worry about (Chapter 2's whole Section 2.2 simply does not apply — the clock is shared, not independently generated by each side), the practical limits on SPI speed come from physical-layer effects instead.</p>
+
+  <h3>How fast can SPI actually go?</h3>
+  <p>Typical microcontroller SPI peripherals support clock rates from a few hundred kHz up to tens of MHz — the ESP32, for example, can drive its hardware SPI peripherals well above 40 MHz under the right conditions. The real ceiling in any specific design is usually set by:</p>
+  <ul>
+    <li><strong>Trace/wire length and signal reflection</strong> (Chapter 1, Section 1.4): at high clock rates, even a few centimeters of unshielded wire can act like a transmission line, and an unterminated long run risks reflections corrupting the signal.</li>
+    <li><strong>The slave device's own maximum rated clock speed</strong>, stated in its datasheet — driving a slave faster than it supports will produce corrupted reads even if the master and the wiring could technically go faster.</li>
+    <li><strong>Rise/fall time versus clock period</strong>: if the clock period becomes comparable to how long it takes the signal to physically transition between logic levels (a function of the driving circuit's strength and the line's capacitance), the receiver may sample before the signal has fully settled.</li>
+  </ul>
+
+  <div class="box why">
+    <span class="box-label">Why SPI can be so much faster than UART or I2C in practice</span>
+    <p style="margin:0;">UART's speed is fundamentally capped by the clock-tolerance requirement of Section 2.2 — push the baud rate too high without correspondingly tight clock accuracy, and framing errors appear. I2C (Chapter 4) is capped by its open-drain output stage, which relies on a pull-up resistor to pull the line back up to logic high — a comparatively slow process that gets slower with more devices and longer wires. SPI has neither limitation: the clock is shared and explicit (no tolerance budget needed) and its outputs are actively driven both high and low (no pull-up-resistor bottleneck), which is precisely why it is the protocol of choice whenever raw throughput — driving a display, reading a fast ADC, talking to flash memory — matters most.</p>
+  </div>
+
+  <h3>MSB-first vs. LSB-first</h3>
+  <p>Unlike UART, which almost universally sends the least-significant bit first, SPI devices commonly send the <strong>most-significant bit first</strong> — though this is a per-device configuration choice, not a fixed rule, and some devices do support LSB-first. Always check the datasheet's specified bit order alongside its specified CPOL/CPHA mode; both must match for the data to be interpreted correctly.</p>
+
+  <div class="box pitfall">
+    <span class="box-label">A too-long, unterminated SPI cable is a common real failure at high speed</span>
+    <p style="margin:0;">SPI is designed for short, board-level, or at most a few tens of centimeters of well-behaved cable — it is a single-ended bus (Chapter 1, Section 1.4) with no built-in noise immunity mechanism. Running SPI over a long ribbon cable or through a noisy environment at high clock speed is a common source of intermittent, hard-to-diagnose corruption; if a design genuinely needs distance, Chapter 5's differential protocols (RS-485, CAN) or simply dropping the SPI clock rate substantially are the usual fixes.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="worked-problem-sp3">
+  <span class="sec-eyebrow">Section 3.5</span>
+  <h2 class="sec-title">Worked problem — a sensor read transaction</h2>
+
+  <div class="box trace">
+    <span class="box-label">Problem</span>
+    <p>A master needs to read a 2-byte measurement from a sensor that requires: CS low, then send a 1-byte command (0x3B) to request the reading, then clock out 2 dummy bytes to receive the sensor's 2-byte response, then CS high. The sensor's datasheet specifies Mode 1 and a maximum clock speed of 10 MHz. (a) Write the transfer sequence, noting what is received during each byte. (b) At exactly 10 MHz, how long does the whole 3-byte transaction take (ignoring CS setup/hold time)? (c) The master's library only supports Mode 0 and Mode 2 natively — what will happen if Mode 0 is used by mistake, and how would you notice?</p>
+    <pre><code>(a) CS = LOW
+    Byte 1: master sends 0x3B (the command)        → receives a dummy/don't-care byte back
+    Byte 2: master sends 0x00 (dummy)               → receives the measurement's HIGH byte
+    Byte 3: master sends 0x00 (dummy)               → receives the measurement's LOW byte
+    CS = HIGH
+    measurement = (high_byte &lt;&lt; 8) | low_byte
+
+(b) 3 bytes = 24 bits. At 10 MHz, each bit takes 1/10,000,000 = 100 ns.
+    Total = 24 × 100 ns = 2.4 µs  (plus any CS setup/hold time the
+    datasheet specifies, which is deliberately excluded here)
+
+(c) Mode 0 samples on the clock's FIRST edge each cycle and idles low
+    (CPOL=0); Mode 1 samples on the SECOND edge each cycle, also
+    idling low (CPOL=0). Both share CPOL=0, so the clock's idle level
+    and overall shape look identical on an oscilloscope — but the
+    SAMPLING edge is wrong by one half-cycle. The master will latch
+    each bit slightly too early relative to when the sensor actually
+    presents valid data, and every received byte will likely be
+    corrupted (shifted, or containing bits from the wrong moment) even
+    though CS, MOSI, and the clock all look completely normal on a
+    scope. This is the exact "mode mismatch produces garbage that
+    looks like a wiring fault" pitfall from Section 3.2 — the fix is
+    entirely in software configuration, not the wiring.</code></pre>
+    <p><strong>What to take away:</strong> part (a) shows the concrete, unavoidable consequence of Section 3.1's full-duplex mechanism — you cannot "just send a command," you must also clock out (and discard, or use) whatever comes back during that same byte. Part (c) is worth remembering as a diagnostic habit: when SPI data looks scrambled but the clock and chip-select signals look electrically normal, suspect a CPOL/CPHA mismatch before suspecting the wiring.</p>
+  </div>
+
+</section>
+
+<section class="sec" id="recap-sp3">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>SPI uses four signals: SCLK (shared clock), MOSI (master→slave data), MISO (slave→master data), and one dedicated CS (chip select) line per slave. The clock line itself marks bit validity, so no start/stop framing or addressing is needed.</li>
+    <li>SPI is full-duplex on every clock edge: master and slave act as two linked shift registers, so sending always means simultaneously receiving something back (real data or a discarded/dummy byte), whether or not either side wants both directions.</li>
+    <li><strong>CPOL</strong> sets the clock's idle level; <strong>CPHA</strong> sets which of the two clock edges data is sampled on. The four combinations are Modes 0–3, with Mode 0 (CPOL=0, CPHA=0) the most common default. A mode mismatch corrupts every byte while looking electrically identical to a wiring fault.</li>
+    <li>Exactly one slave is selected at a time via its CS line (active low); CS high puts a slave's MISO into high-impedance. Multiple slaves share SCLK/MOSI/MISO but each needs its own CS pin — the direct trade-off against I2C's shared-address approach (Chapter 4). Daisy-chaining is an alternative for devices that specifically support it.</li>
+    <li>SPI has no clock-tolerance budget (the clock is shared, not independently generated), so its speed limits come from physical-layer effects: trace length/reflection, the slave's rated maximum speed, and rise/fall time. This is why SPI can run far faster than UART or I2C in practice. Bit order (MSB-first vs. LSB-first) is a per-device setting that must match, alongside CPOL/CPHA.</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-sp3">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>Why does a master that only wants to read data from an SPI slave still need to transmit bytes on MOSI during that read?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">SPI's full-duplex operation is driven by a shared clock acting on two linked shift registers: every clock edge shifts a bit out of the master on MOSI and a bit out of the slave on MISO simultaneously. The slave will not produce clock edges on its own, so the master must still toggle the clock (usually by clocking out dummy bytes such as 0x00) purely to generate the clock edges that cause the slave to shift its data out on MISO.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>Two devices are both configured with CPOL=1. One is set to CPHA=0 and the other to CPHA=1. Will they communicate correctly? Why or why not, and what would you observe if you tried?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">No — CPOL=1 with CPHA=0 is Mode 2, and CPOL=1 with CPHA=1 is Mode 3; these are different modes that sample data on opposite clock edges. The clock's idle level (high, from CPOL=1) would look the same on both devices, but the actual sampling instant is shifted by half a clock cycle between them, so every transferred byte would come out corrupted despite the wiring and even the clock's basic idle behavior looking correct.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>A master has one SCLK, one MOSI, one MISO, and needs to talk to 5 independent SPI slaves without daisy-chaining. How many total GPIO pins does this require on the master, and why doesn't the shared-bus design reduce that number further?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">3 shared pins (SCLK, MOSI, MISO) plus 5 dedicated CS pins, one per slave, for a total of 8 pins. The three data/clock wires can be shared because only one slave is ever actively selected (and driving MISO) at a time, but SPI has no addressing scheme carried over the data wires themselves — the CS line IS the addressing mechanism, so each slave still needs its own dedicated CS wire from the master.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 4</span>
+    <p>Why can SPI typically run at a much higher clock rate than a comparable I2C bus?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">SPI's outputs are actively driven both high and low by the transmitting device, and its clock is generated and shared directly by the master with no independent-clock tolerance budget to manage. I2C instead relies on an open-drain output stage pulled high through a resistor, which is inherently slower to transition from low to high, and that pull-up transition time becomes the limiting factor on I2C's maximum practical speed, especially as more devices and longer wires add capacitance to the bus.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 5</span>
+    <p>If two slaves on the same SPI bus both have their CS lines pulled low at the same time by mistake, what electrical problem occurs, and on which wire?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">Both slaves will attempt to drive the shared MISO line simultaneously, one trying to output a logic high where the other outputs a logic low (or vice versa) — this is a bus contention, and the resulting voltage on MISO is undefined and unreliable, potentially also stressing the output drivers of both devices. This is why only one CS line should ever be asserted (held low) at any given moment.</div>
+  </div>
+
+</section>
+
+<div class="chapter-nav">
+  <a href="sp-02-uart.html"><span class="lbl">Previous</span>← 2. UART</a>
+  <a href="sp-04-i2c.html" class="next-wrap"><span class="lbl">Next chapter</span>4. I2C →</a>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Digital Logic Ch.7 — From Logic to Hardware — CPS Deep Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+  <div class="brand"><span class="dot"></span>CPS COURSE</div>
+  <div class="crumb">Digital Logic / Ch. 7: Logic to Hardware</div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="font-group">
+    <button class="font-btn" id="fontMinus">A−</button>
+    <button class="font-btn" id="fontPlus">A+</button>
+  </div>
+  <div class="theme-group">
+    <button class="theme-btn" data-theme-btn="dark">Dark</button>
+    <button class="theme-btn" data-theme-btn="light">Light</button>
+    <button class="theme-btn" data-theme-btn="sepia">Sepia</button>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar" data-nav-root>
+  <div id="nav-root"></div>
+</nav>
+<main><div class="content-wrap">
+<section class="hero" id="top">
+  <span class="eyebrow">// Digital Logic Design — Chapter 7 of 7 (final)</span>
+  <h1>From Logic to Hardware</h1>
+  <p>Every gate, flip-flop, counter, and FSM in this course has been drawn as a diagram. This closing chapter is about how that diagram actually becomes physical silicon — and introduces Hardware Description Languages, the tool that lets you describe circuits in a text file instead of hand-drawing every gate, setting up directly for your FPGA & VHDL/Verilog roadmap topic.</p>
+  <div class="meta"><span>Chapter 7 of 7 — final chapter</span><span>Synthesizes Chapters 1-6</span><span>Bridges into FPGA & Microcontrollers topics</span></div>
+</section>
+<section class="sec" id="two-paths-hardware">
+  <span class="sec-eyebrow">Section 7.1</span>
+  <h2 class="sec-title">Two paths from a diagram to real hardware</h2>
+
+  <p>Once you've designed a circuit — even something as simple as Chapter 3's full adder — there are two fundamentally different ways to make it physically real:</p>
+
+  <h3>Fixed-function ICs — gates already baked into silicon</h3>
+  <p>Decades-old chip families (the "74xx series") package a handful of gates each — a single chip might contain four independent NAND gates, wired to external pins, and nothing else. Building a circuit means physically wiring several such chips together on a breadboard or PCB (recall your PCB Design roadmap topic). This is simple to understand and still used for small, fixed designs, but genuinely impractical for anything with more than a modest number of gates — you'd need dozens of chips and enormous amounts of wiring for a real FSM or counter of useful size.</p>
+
+  <h3>Programmable logic — an FPGA reconfigures itself to BE your circuit</h3>
+  <p>An <strong>FPGA</strong> (Field-Programmable Gate Array — the exact device your later FPGA roadmap topic covers in depth) contains thousands of tiny, generic, reconfigurable logic blocks. Instead of wiring separate fixed-function chips together, you describe your entire circuit — every gate, every flip-flop, every FSM from this course — in a text file, and specialized software configures the FPGA's internal blocks and interconnections to physically <em>become</em> that exact circuit.</p>
+
+  <div class="box why">
+    <span class="box-label">Why this matters for everything you just learned</span>
+    <p style="margin:0;">Every single concept from Chapters 1-6 — gates, truth tables, flip-flops, counters, FSMs — is not just theory you'll leave behind. It's the literal vocabulary you need to read and write the text description that configures an FPGA. The next section shows you exactly what that text description looks like, and how directly it maps onto what you've already learned.</p>
+  </div>
+</section>
+
+<section class="sec" id="hdl-intro">
+  <span class="sec-eyebrow">Section 7.2</span>
+  <h2 class="sec-title">Hardware Description Languages — describing circuits, not writing programs</h2>
+
+  <p><strong>VHDL</strong> and <strong>Verilog</strong> are the two dominant Hardware Description Languages (HDLs) — text formats that look superficially like programming code, but describe hardware structure and timing, not a sequence of instructions to execute. This distinction is worth taking seriously, because it's the single biggest mental adjustment coming from C or Python.</p>
+
+  <div class="box pitfall">
+    <span class="box-label">The critical mental shift: concurrent, not sequential</span>
+    <p style="margin:0;">In C (Chapter 4 of the C course), statements execute one after another, in order — line 2 waits for line 1 to finish. In an HDL, <strong>every line describing a signal assignment can, in principle, happen simultaneously</strong> — you're describing physically separate pieces of hardware (Chapter 2's gates, Chapter 4's flip-flops) that all exist and operate <em>at the same time</em>, not a sequence of steps a single processor works through one at a time. A block like <code>process(clk)</code> in VHDL doesn't mean "run this function when called" — it describes a piece of hardware (a register, Chapter 5) that updates only on a clock edge, exactly like Chapter 4's edge-triggered flip-flops.</p>
+  </div>
+
+  <h3>A full adder (Chapter 3, Section 3.1), described in Verilog</h3>
+  <pre><code>module full_adder(
+    input  a, b, cin,
+    output sum, cout
+);
+    assign sum  = a ^ b ^ cin;        // XOR chain -- Chapter 2's XOR gate, Chapter 3's Sum logic
+    assign cout = (a & b) | (b & cin) | (a & cin);  // Chapter 3's carry-out logic, directly
+endmodule</code></pre>
+  <div class="box why">
+    <span class="box-label">Why this should look almost readable already</span>
+    <p style="margin:0;"><code>^</code> is XOR, <code>&amp;</code> is AND, <code>|</code> is OR — exactly Chapter 2's gate symbols and exactly C Chapter 10's bitwise operators, now describing real hardware structure instead of a software bit-manipulation operation on a variable. The <code>assign</code> statements aren't sequential instructions — both lines describe genuinely separate, simultaneously-existing pieces of combinational logic (Chapter 3), computing continuously and in parallel, exactly like the real full-adder circuit diagram from Chapter 3 you already understand.</p>
+  </div>
+
+  <h3>A D flip-flop (Chapter 4), described in Verilog</h3>
+  <pre><code>module d_flipflop(
+    input  clk, d,
+    output reg q
+);
+    always @(posedge clk)    // "posedge" = positive/rising edge -- Chapter 4's edge-triggering
+        q <= d;                // capture d's value into q, exactly at the clock edge, nothing more
+endmodule</code></pre>
+  <p><code>always @(posedge clk)</code> is a direct, literal statement of Chapter 4's central idea: this hardware only updates at the instant of a rising clock edge — everything between edges is irrelevant, exactly as Section 4.3's worked problem demonstrated by hand.</p>
+</section>
+<section class="sec" id="course-closing-dl">
+  <span class="sec-eyebrow">Section 7.3</span>
+  <h2 class="sec-title">Closing the loop — how this course connects to everything ahead</h2>
+
+  <table>
+    <tr><th>This course's chapter</th><th>Where it becomes essential next</th></tr>
+    <tr><td>Ch.1 — Number systems, hex</td><td>Reading register values and memory addresses throughout Microcontrollers and every embedded C datasheet.</td></tr>
+    <tr><td>Ch.2 — Boolean algebra, gates</td><td>Directly IS C's bitwise operators (C Chapter 10) — you were applying this chapter's laws the whole time.</td></tr>
+    <tr><td>Ch.3 — Combinational logic, K-maps</td><td>The FPGA topic's actual circuit design work; decoders explain microcontroller memory-mapped register addressing.</td></tr>
+    <tr><td>Ch.4 — Latches &amp; flip-flops</td><td>Every register and memory element in a microcontroller or FPGA design.</td></tr>
+    <tr><td>Ch.5 — Counters &amp; registers</td><td>Microcontroller timer peripherals directly — configuring a hardware timer IS configuring this chapter's circuits.</td></tr>
+    <tr><td>Ch.6 — Finite state machines</td><td>RTOS scheduling logic, protocol parsers, and adaptive traffic signal controllers.</td></tr>
+    <tr><td>Ch.7 — HDL &amp; FPGAs (this chapter)</td><td>The literal syntax and mental model for your dedicated FPGA &amp; VHDL/Verilog roadmap topic.</td></tr>
+  </table>
+
+  <div class="box what">
+    <span class="box-label">Where this leaves you</span>
+    <p style="margin:0;">You now understand digital logic from binary representation up through finite state machines and the language used to describe them as real hardware. Combined with completed Linear Algebra, C Programming, and Python for Engineering, you have four full Year 1 foundational topics — and every one of them will resurface directly and explicitly in Microcontrollers, RTOS, Control Systems, and the FPGA topic still ahead in your roadmap.</p>
+  </div>
+</section>
+
+<section class="sec" id="recap-dl7">
+  <span class="sec-eyebrow">Wrap-up</span>
+  <h2 class="sec-title">Recap</h2>
+  <ol class="recap-list">
+    <li>Circuits become physical hardware either through <strong>fixed-function ICs</strong> (simple, but impractical past small designs) or <strong>FPGAs</strong> (reconfigurable logic blocks that physically become your described circuit).</li>
+    <li><strong>Hardware Description Languages</strong> (VHDL, Verilog) describe circuit structure and timing, not sequential instructions — every line can represent simultaneously-existing, parallel hardware, a genuine mental shift from software.</li>
+    <li>HDL operators (<code>&amp;</code>, <code>|</code>, <code>^</code>) are exactly this course's gates and exactly C's bitwise operators — the same underlying concept in a third notation.</li>
+    <li><code>always @(posedge clk)</code>-style blocks directly implement Chapter 4's edge-triggered flip-flop behavior — HDL doesn't introduce a new timing concept, it gives you syntax for one you already understand.</li>
+    <li>Every chapter in this course maps to a specific, concrete need later in the roadmap: Microcontroller timers (Ch.5), memory-mapped registers (Ch.1, Ch.3), RTOS/protocol logic and traffic-signal controllers (Ch.6), and the FPGA topic's entire syntax (Ch.7).</li>
+  </ol>
+</section>
+
+<section class="sec" id="quiz-dl7">
+  <span class="sec-eyebrow">Check yourself</span>
+  <h2 class="sec-title">Quick check — final review across the whole Digital Logic course</h2>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 1</span>
+    <p>Why is it misleading to think of an HDL description as "code that runs," the way a C program does?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">An HDL describes physically separate pieces of hardware that exist and operate simultaneously, not a sequence of instructions executed one after another by a single processor. Multiple assign/always blocks in the same file all represent concurrently-existing circuitry, not a step-by-step sequence.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 2</span>
+    <p>What does "always @(posedge clk) q <= d;" directly correspond to from Chapter 4?</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">An edge-triggered D flip-flop -- this HDL block describes hardware that captures d's value into q only at the instant of a rising clock edge, exactly matching Chapter 4's core concept, just expressed in HDL syntax instead of a truth table or diagram.</div>
+  </div>
+
+  <div class="quiz-q">
+    <span class="q-num">Question 3</span>
+    <p>Name one specific way Chapter 6 (Finite State Machines) connects directly to a project or topic elsewhere in the CPS roadmap.</p>
+    <button class="quiz-toggle">Show answer</button>
+    <div class="quiz-answer">The adaptive traffic light worked example is directly the conceptual foundation of an adaptive traffic signal project -- adding sensor inputs that alter an FSM's transitions, rather than relying on fixed timers alone, is exactly what makes a traffic signal system "adaptive."</div>
+  </div>
+</section>
+
+<div class="box what" style="margin-top:30px;">
+  <span class="box-label">Digital Logic Design — complete</span>
+  <p style="margin:0;">All 7 chapters done, from binary representation through finite state machines and HDL. That's four full Year 1 topics now complete: Linear Algebra, C Programming, Python for Engineering, and Digital Logic Design. Next up per roadmap order: <strong>Git, Linux & Command Line</strong>.</p>
+</div>
+
+<div class="chapter-nav">
+  <a href="dl-06-fsm.html"><span class="lbl">Previous</span>← 6. Finite State Machines</a>
+  <div class="disabled next-wrap"><span class="lbl">Next topic</span>Git, Linux & Command Line — coming soon</div>
+</div>
+
+<div class="mark-read-bar">
+  <button class="mark-read-btn" id="markReadBtn">Mark this chapter as read</button>
+</div>
+</div></main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>
